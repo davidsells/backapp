@@ -454,8 +454,9 @@ CREATE TABLE alerts (
 - [ ] Documentation
 
 ### Phase 7: Deployment (Week 9)
-- [ ] Production environment setup
-- [ ] Deploy to hosting platform (Vercel/AWS)
+- [ ] Production environment setup (remote cloud account)
+- [ ] Deploy application to cloud instance
+- [ ] Configure Cloudflare tunnel for https://backapp.davidhsells.today
 - [ ] Set up monitoring and logging
 - [ ] Create user documentation
 - [ ] Beta testing
