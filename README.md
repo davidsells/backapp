@@ -27,7 +27,8 @@ This application provides an intuitive interface to configure, schedule, monitor
 - **Authentication**: NextAuth.js (Auth.js v5)
 - **Storage**: AWS S3 SDK v3
 - **Testing**: Jest, React Testing Library, Playwright
-- **Deployment**: Vercel, Docker, or self-hosted
+- **Deployment**: Docker Compose, Vercel, or self-hosted
+- **Containerization**: Docker with multi-stage builds
 
 ## Project Status
 
@@ -38,16 +39,61 @@ This project is currently in the **planning phase**. The architecture and compon
 - [Architecture Plan](./ARCHITECTURE_PLAN.md) - Comprehensive system architecture and component design
 - [Testing Strategy](./TESTING_STRATEGY.md) - Detailed testing approach for all components
 - [Project Structure](./PROJECT_STRUCTURE.md) - Directory layout and setup instructions
+- [Deployment Guide](./DEPLOYMENT.md) - Docker Compose and production deployment instructions
 
-## Quick Start (Coming Soon)
+## Quick Start
 
-Once implementation begins, the quick start will include:
+### Option 1: Docker Compose (Recommended)
+
+The fastest way to get started with Docker Compose:
 
 ```bash
 # Clone the repository
 git clone <repository-url>
 cd backapp
 
+# Copy environment file
+cp .env.example .env
+# Edit .env with your configuration (especially NEXTAUTH_SECRET and AWS credentials)
+
+# Development mode (with hot reloading)
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+# Production mode
+docker-compose up -d
+```
+
+Visit `http://localhost:3000` to access the application.
+
+**Additional services available in development:**
+- **PostgreSQL**: `localhost:5432`
+- **PgAdmin**: `http://localhost:5050` (admin@backapp.local / admin)
+- **LocalStack (S3)**: `http://localhost:4566`
+- **MailHog (Email testing)**: `http://localhost:8025`
+
+**Common Docker commands:**
+```bash
+# View logs
+docker-compose logs -f app
+
+# Stop all services
+docker-compose down
+
+# Rebuild and restart
+docker-compose up -d --build
+
+# Run database migrations
+docker-compose exec app npx prisma migrate deploy
+
+# Access database shell
+docker-compose exec db psql -U backapp -d backapp
+```
+
+### Option 2: Local Development (Coming Soon)
+
+Once implementation begins, local development will include:
+
+```bash
 # Install dependencies
 npm install
 
