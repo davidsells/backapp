@@ -1,30 +1,38 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { auth } from '@/lib/auth';
 
-// Middleware function for auth and route protection
-// Will be expanded in Phase 2
-export function middleware(request: NextRequest) {
-  // Add security headers
-  const response = NextResponse.next();
+export default auth((req) => {
+  const { nextUrl } = req;
+  const isLoggedIn = !!req.auth;
 
-  response.headers.set('X-Frame-Options', 'DENY');
-  response.headers.set('X-Content-Type-Options', 'nosniff');
-  response.headers.set('X-XSS-Protection', '1; mode=block');
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  // Define protected and auth routes
+  const isAuthPage =
+    nextUrl.pathname.startsWith('/login') ||
+    nextUrl.pathname.startsWith('/register');
 
-  return response;
-}
+  const isProtectedPage =
+    nextUrl.pathname.startsWith('/dashboard') ||
+    nextUrl.pathname.startsWith('/configs') ||
+    nextUrl.pathname.startsWith('/backups') ||
+    nextUrl.pathname.startsWith('/reports') ||
+    nextUrl.pathname.startsWith('/settings') ||
+    nextUrl.pathname.startsWith('/alerts');
+
+  // Redirect to dashboard if logged in and on auth page
+  if (isLoggedIn && isAuthPage) {
+    return Response.redirect(new URL('/dashboard', nextUrl));
+  }
+
+  // Redirect to login if not logged in and on protected page
+  if (!isLoggedIn && isProtectedPage) {
+    return Response.redirect(new URL('/login', nextUrl));
+  }
+
+  return;
+});
 
 // Configure which routes to run middleware on
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
     '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 };
