@@ -27,8 +27,7 @@ This application provides an intuitive interface to configure, schedule, monitor
 - **Authentication**: NextAuth.js (Auth.js v5)
 - **Storage**: AWS S3 SDK v3
 - **Testing**: Jest, React Testing Library, Playwright
-- **Deployment**: Docker Compose, Vercel, or self-hosted
-- **Containerization**: Docker with multi-stage builds
+- **Deployment**: Remote cloud with Cloudflare tunnel
 
 ## Project Status
 
