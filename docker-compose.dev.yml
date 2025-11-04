@@ -1,0 +1,51 @@
+version: '3.9'
+
+services:
+  # Development overrides for Next.js Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: development
+    environment:
+      NODE_ENV: development
+    volumes:
+      # Mount source code for hot reloading
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev
+
+  # Development PostgreSQL with additional tooling
+  db:
+    environment:
+      POSTGRES_PASSWORD: devpassword
+    ports:
+      - "5432:5432"
+
+  # Enable LocalStack and MailHog by default in dev
+  localstack:
+    environment:
+      DEBUG: 1
+
+  # Additional pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: backapp-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@backapp.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - db
+    networks:
+      - backapp-network
+
+volumes:
+  pgadmin_data:
+    driver: local
