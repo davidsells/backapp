@@ -1,0 +1,88 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String         @id @default(uuid())
+  email        String         @unique
+  name         String
+  passwordHash String
+  role         String         @default("user")
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  configs BackupConfig[]
+  logs    BackupLog[]
+  alerts  Alert[]
+
+  @@map("users")
+}
+
+model BackupConfig {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String
+  enabled     Boolean  @default(true)
+  sources     Json
+  destination Json
+  schedule    Json
+  options     Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs   BackupLog[]
+  alerts Alert[]
+
+  @@index([userId])
+  @@map("backup_configs")
+}
+
+model BackupLog {
+  id               String    @id @default(uuid())
+  configId         String
+  userId           String
+  startTime        DateTime
+  endTime          DateTime?
+  status           String
+  filesProcessed   Int       @default(0)
+  filesSkipped     Int       @default(0)
+  totalBytes       BigInt    @default(0)
+  bytesTransferred BigInt    @default(0)
+  errors           Json?
+  duration         Int?
+  createdAt        DateTime  @default(now())
+
+  config BackupConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([configId])
+  @@index([startTime])
+  @@map("backup_logs")
+}
+
+model Alert {
+  id           String   @id @default(uuid())
+  userId       String
+  configId     String
+  type         String
+  message      String
+  acknowledged Boolean  @default(false)
+  timestamp    DateTime @default(now())
+
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  config BackupConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([configId])
+  @@map("alerts")
+}
