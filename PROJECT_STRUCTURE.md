@@ -431,7 +431,7 @@ LOG_LEVEL="error"
 DATABASE_URL="postgresql://prod_user:strong_password@db.example.com:5432/backupdb?schema=public&pgbouncer=true"
 
 # NextAuth
-NEXTAUTH_URL="https://backup.yourdomain.com"
+NEXTAUTH_URL="https://backapp.davidhsells.today"
 NEXTAUTH_SECRET="production-secret-very-long-and-random"
 
 # AWS S3
@@ -644,14 +644,43 @@ npm run test:coverage
 
 ## Deployment
 
-### Vercel Deployment
+### Cloud Deployment with Cloudflare Tunnel
 
-1. Connect GitHub repository to Vercel
-2. Configure environment variables in Vercel dashboard
-3. Set build command: `npm run build`
-4. Set output directory: `.next`
-5. Configure PostgreSQL connection (Vercel Postgres or external)
-6. Deploy
+The application will be deployed to a remote cloud account and made accessible through a Cloudflare tunnel.
+
+**Access URL**: https://backapp.davidhsells.today
+
+**Deployment Steps**:
+
+1. **Prepare Cloud Instance**
+   - Set up remote cloud server (Ubuntu/Linux)
+   - Install Node.js 20+ and PostgreSQL 15+
+   - Configure firewall rules (only local access needed)
+
+2. **Deploy Application**
+   - Clone repository to cloud instance
+   - Install dependencies: `npm ci`
+   - Configure environment variables
+   - Build application: `npm run build`
+   - Set up systemd service for application
+   - Start application: `npm run start`
+
+3. **Configure Cloudflare Tunnel**
+   - Install cloudflared on cloud instance
+   - Create tunnel: `cloudflared tunnel create backapp`
+   - Configure tunnel routing to local application port (3000)
+   - Route subdomain: backapp.davidhsells.today
+   - Start tunnel service
+
+4. **Database Setup**
+   - Configure PostgreSQL for production use
+   - Run migrations: `npm run db:migrate`
+   - Set up automated backups for database
+
+5. **Monitoring**
+   - Configure application logging
+   - Set up health checks
+   - Monitor tunnel status
 
 ### Docker Deployment
 
