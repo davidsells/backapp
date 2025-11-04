@@ -1,0 +1,84 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String         @id @default(uuid())
+  email        String         @unique
+  name         String
+  passwordHash String         @map("password_hash")
+  role         String         @default("user")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  configs      BackupConfig[]
+  logs         BackupLog[]
+  alerts       Alert[]
+
+  @@map("users")
+}
+
+model BackupConfig {
+  id          String      @id @default(uuid())
+  userId      String      @map("user_id")
+  name        String
+  enabled     Boolean     @default(true)
+  sources     Json
+  destination Json
+  schedule    Json
+  options     Json
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs        BackupLog[]
+  alerts      Alert[]
+
+  @@index([userId])
+  @@map("backup_configs")
+}
+
+model BackupLog {
+  id               String       @id @default(uuid())
+  configId         String       @map("config_id")
+  userId           String       @map("user_id")
+  startTime        DateTime     @map("start_time")
+  endTime          DateTime?    @map("end_time")
+  status           String
+  filesProcessed   Int          @default(0) @map("files_processed")
+  filesSkipped     Int          @default(0) @map("files_skipped")
+  totalBytes       BigInt       @default(0) @map("total_bytes")
+  bytesTransferred BigInt       @default(0) @map("bytes_transferred")
+  errors           Json?
+  duration         Int?
+  createdAt        DateTime     @default(now()) @map("created_at")
+  config           BackupConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([configId])
+  @@index([startTime])
+  @@map("backup_logs")
+}
+
+model Alert {
+  id           String       @id @default(uuid())
+  userId       String       @map("user_id")
+  configId     String       @map("config_id")
+  type         String
+  message      String
+  acknowledged Boolean      @default(false)
+  timestamp    DateTime     @default(now())
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  config       BackupConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([configId])
+  @@map("alerts")
+}
