@@ -1,9 +1,37 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { auth } from '@/lib/auth/auth';
 
 // Middleware function for auth and route protection
-// Will be expanded in Phase 2
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
+  const session = await auth();
+
+  // Define public paths that don't require authentication
+  const publicPaths = ['/', '/login', '/register'];
+  const isPublicPath = publicPaths.some(path =>
+    request.nextUrl.pathname === path
+  );
+
+  // Define protected paths that require authentication
+  const isProtectedPath = request.nextUrl.pathname.startsWith('/dashboard') ||
+    request.nextUrl.pathname.startsWith('/configs') ||
+    request.nextUrl.pathname.startsWith('/backups') ||
+    request.nextUrl.pathname.startsWith('/reports') ||
+    request.nextUrl.pathname.startsWith('/settings') ||
+    request.nextUrl.pathname.startsWith('/alerts');
+
+  // Redirect to login if accessing protected route without session
+  if (isProtectedPath && !session) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('callbackUrl', request.nextUrl.pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // Redirect to dashboard if accessing auth pages while logged in
+  if ((request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/register') && session) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
   // Add security headers
   const response = NextResponse.next();
 
