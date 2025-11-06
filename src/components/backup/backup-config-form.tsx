@@ -107,8 +107,9 @@ export function BackupConfigForm({ initialData }: { initialData?: Partial<FormDa
 
   const updateSource = (index: number, field: keyof BackupSource, value: string) => {
     const newSources = [...formData.sources];
-    if (field === 'path') {
-      newSources[index][field] = value;
+    const source = newSources[index];
+    if (source && field === 'path') {
+      source[field] = value;
     }
     setFormData({ ...formData, sources: newSources });
   };
