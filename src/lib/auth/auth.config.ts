@@ -9,6 +9,7 @@ import { baseAuthConfig } from './base-auth.config';
  */
 export const authConfig: NextAuthConfig = {
   ...baseAuthConfig,
+  trustHost: true, // Trust the host from NEXTAUTH_URL
   providers: [
     CredentialsProvider({
       name: 'credentials',

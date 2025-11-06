@@ -5,6 +5,7 @@ import type { NextAuthConfig } from 'next-auth';
  * This doesn't include providers that require Node.js APIs
  */
 export const baseAuthConfig: NextAuthConfig = {
+  trustHost: true, // Trust the host from NEXTAUTH_URL environment variable
   pages: {
     signIn: '/login',
     signOut: '/login',
