@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/lib/auth/auth';
+import type { NextRequest } from 'next/server';
 
-// Middleware function for auth and route protection
-export default auth((req) => {
-  const isLoggedIn = !!req.auth;
-  const { nextUrl } = req;
+// Simple middleware without NextAuth - just check cookies manually
+export async function middleware(request: NextRequest) {
+  const { nextUrl } = request;
 
-  console.log('[Middleware] Path:', nextUrl.pathname, 'Logged in:', isLoggedIn);
+  // Get the session token from cookies
+  const token = request.cookies.get('authjs.session-token') ||
+                request.cookies.get('__Secure-authjs.session-token');
+
+  const isLoggedIn = !!token;
+
+  console.log('[Middleware] Path:', nextUrl.pathname, 'Has token:', isLoggedIn);
 
   // Define protected paths that require authentication
   const isProtectedPath =
@@ -19,7 +24,7 @@ export default auth((req) => {
 
   // Redirect to login if accessing protected route without session
   if (isProtectedPath && !isLoggedIn) {
-    console.log('[Middleware] Redirecting to login - no session');
+    console.log('[Middleware] Redirecting to login - no session token');
     const loginUrl = new URL('/login', nextUrl.origin);
     loginUrl.searchParams.set('callbackUrl', nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
@@ -30,7 +35,7 @@ export default auth((req) => {
     (nextUrl.pathname === '/login' || nextUrl.pathname === '/register') &&
     isLoggedIn
   ) {
-    console.log('[Middleware] Redirecting to dashboard - already logged in');
+    console.log('[Middleware] Redirecting to dashboard - has session token');
     return NextResponse.redirect(new URL('/dashboard', nextUrl.origin));
   }
 
@@ -42,7 +47,7 @@ export default auth((req) => {
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
   return response;
-});
+}
 
 // Configure which routes to run middleware on
 export const config = {
