@@ -1,47 +1,48 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { auth } from '@/lib/auth/auth';
+import NextAuth from 'next-auth';
+import { baseAuthConfig } from '@/lib/auth/base-auth.config';
+
+const { auth } = NextAuth(baseAuthConfig);
 
 // Middleware function for auth and route protection
-export async function middleware(request: NextRequest) {
-  const session = await auth();
-
-  // Define public paths that don't require authentication
-  const publicPaths = ['/', '/login', '/register'];
-  const isPublicPath = publicPaths.some(path =>
-    request.nextUrl.pathname === path
-  );
+export default auth((req) => {
+  const isLoggedIn = !!req.auth;
+  const { nextUrl } = req;
 
   // Define protected paths that require authentication
-  const isProtectedPath = request.nextUrl.pathname.startsWith('/dashboard') ||
-    request.nextUrl.pathname.startsWith('/configs') ||
-    request.nextUrl.pathname.startsWith('/backups') ||
-    request.nextUrl.pathname.startsWith('/reports') ||
-    request.nextUrl.pathname.startsWith('/settings') ||
-    request.nextUrl.pathname.startsWith('/alerts');
+  const isProtectedPath =
+    nextUrl.pathname.startsWith('/dashboard') ||
+    nextUrl.pathname.startsWith('/configs') ||
+    nextUrl.pathname.startsWith('/backups') ||
+    nextUrl.pathname.startsWith('/reports') ||
+    nextUrl.pathname.startsWith('/settings') ||
+    nextUrl.pathname.startsWith('/alerts');
 
   // Redirect to login if accessing protected route without session
-  if (isProtectedPath && !session) {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('callbackUrl', request.nextUrl.pathname);
+  if (isProtectedPath && !isLoggedIn) {
+    const loginUrl = new URL('/login', nextUrl.origin);
+    loginUrl.searchParams.set('callbackUrl', nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
   }
 
   // Redirect to dashboard if accessing auth pages while logged in
-  if ((request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/register') && session) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+  if (
+    (nextUrl.pathname === '/login' || nextUrl.pathname === '/register') &&
+    isLoggedIn
+  ) {
+    return NextResponse.redirect(new URL('/dashboard', nextUrl.origin));
   }
 
   // Add security headers
   const response = NextResponse.next();
-
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-XSS-Protection', '1; mode=block');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
   return response;
-}
+});
 
 // Configure which routes to run middleware on
 export const config = {

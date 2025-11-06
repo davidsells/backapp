@@ -11,6 +11,9 @@ const nextConfig = {
     },
   },
 
+  // Prevent bundling of native modules
+  serverComponentsExternalPackages: ['bcrypt', '@mapbox/node-pre-gyp'],
+
   // Security headers
   async headers() {
     return [
@@ -48,6 +51,22 @@ const nextConfig = {
         tls: false,
       };
     }
+
+    // Exclude bcrypt and other native modules from webpack bundling
+    config.externals = [
+      ...(config.externals || []),
+      {
+        bcrypt: 'commonjs bcrypt',
+        '@mapbox/node-pre-gyp': 'commonjs @mapbox/node-pre-gyp',
+      },
+    ];
+
+    // Ignore specific node-pre-gyp files that cause issues
+    config.module = {
+      ...config.module,
+      exprContextCritical: false,
+    };
+
     return config;
   },
 };
