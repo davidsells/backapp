@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import { prisma } from '@/lib/db/client';
-import { RegisterData, LoginCredentials, User } from '@/lib/types/auth.types';
+import { RegisterData, User } from '@/lib/types/auth.types';
 
 const SALT_ROUNDS = 10;
 
