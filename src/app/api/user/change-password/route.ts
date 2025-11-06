@@ -24,10 +24,11 @@ export async function POST(request: NextRequest) {
     // Validate request body
     const validationResult = changePasswordSchema.safeParse(body);
     if (!validationResult.success) {
+      const errorMessage = validationResult.error.errors[0]?.message || 'Validation failed';
       return NextResponse.json(
         {
           success: false,
-          error: validationResult.error.errors[0].message,
+          error: errorMessage,
         },
         { status: 400 }
       );

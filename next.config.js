@@ -9,10 +9,9 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '5mb',
     },
+    // Prevent bundling of native modules in server components
+    serverComponentsExternalPackages: ['bcrypt', '@mapbox/node-pre-gyp'],
   },
-
-  // Prevent bundling of native modules
-  serverComponentsExternalPackages: ['bcrypt', '@mapbox/node-pre-gyp'],
 
   // Security headers
   async headers() {
