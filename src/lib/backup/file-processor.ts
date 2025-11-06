@@ -1,6 +1,6 @@
-import { createReadStream, createWriteStream, statSync } from 'fs';
+import { createReadStream, createWriteStream } from 'fs';
 import { readdir, stat } from 'fs/promises';
-import { join, relative, basename } from 'path';
+import { join, relative } from 'path';
 import { createGzip } from 'zlib';
 import { pipeline } from 'stream/promises';
 import archiver from 'archiver';
