@@ -9,7 +9,7 @@ async function SignOutButton() {
     <form
       action={async () => {
         'use server';
-        await signOut();
+        await signOut({ redirectTo: '/login' });
       }}
     >
       <Button type="submit" variant="ghost" size="sm">

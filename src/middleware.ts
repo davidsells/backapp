@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
-import NextAuth from 'next-auth';
-import { baseAuthConfig } from '@/lib/auth/base-auth.config';
-
-const { auth } = NextAuth(baseAuthConfig);
+import { auth } from '@/lib/auth/auth';
 
 // Middleware function for auth and route protection
 export default auth((req) => {
   const isLoggedIn = !!req.auth;
   const { nextUrl } = req;
+
+  console.log('[Middleware] Path:', nextUrl.pathname, 'Logged in:', isLoggedIn);
 
   // Define protected paths that require authentication
   const isProtectedPath =
@@ -20,6 +19,7 @@ export default auth((req) => {
 
   // Redirect to login if accessing protected route without session
   if (isProtectedPath && !isLoggedIn) {
+    console.log('[Middleware] Redirecting to login - no session');
     const loginUrl = new URL('/login', nextUrl.origin);
     loginUrl.searchParams.set('callbackUrl', nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
@@ -30,6 +30,7 @@ export default auth((req) => {
     (nextUrl.pathname === '/login' || nextUrl.pathname === '/register') &&
     isLoggedIn
   ) {
+    console.log('[Middleware] Redirecting to dashboard - already logged in');
     return NextResponse.redirect(new URL('/dashboard', nextUrl.origin));
   }
 
