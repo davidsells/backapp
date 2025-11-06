@@ -29,35 +29,6 @@ export const baseAuthConfig: NextAuthConfig = {
       }
       return session;
     },
-    authorized({ auth, request: { nextUrl } }) {
-      const isLoggedIn = !!auth?.user;
-      const isOnDashboard = nextUrl.pathname.startsWith('/dashboard');
-      const isOnConfigs = nextUrl.pathname.startsWith('/configs');
-      const isOnBackups = nextUrl.pathname.startsWith('/backups');
-      const isOnReports = nextUrl.pathname.startsWith('/reports');
-      const isOnSettings = nextUrl.pathname.startsWith('/settings');
-      const isOnAlerts = nextUrl.pathname.startsWith('/alerts');
-
-      const isOnProtectedRoute =
-        isOnDashboard ||
-        isOnConfigs ||
-        isOnBackups ||
-        isOnReports ||
-        isOnSettings ||
-        isOnAlerts;
-
-      if (isOnProtectedRoute) {
-        if (isLoggedIn) return true;
-        return false; // Redirect unauthenticated users to login page
-      } else if (isLoggedIn) {
-        const isOnAuthPage =
-          nextUrl.pathname === '/login' || nextUrl.pathname === '/register';
-        if (isOnAuthPage) {
-          return Response.redirect(new URL('/dashboard', nextUrl));
-        }
-      }
-      return true;
-    },
   },
   session: {
     strategy: 'jwt',
