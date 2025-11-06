@@ -142,7 +142,7 @@ export class BackupExecutor {
   ): Promise<BackupResult> {
     const startTime = Date.now();
     let filesProcessed = 0;
-    let filesSkipped = 0;
+    const filesSkipped = 0;
     let totalBytes = 0;
     let bytesTransferred = 0;
     const errors: BackupError[] = [];

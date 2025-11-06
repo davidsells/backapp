@@ -4,6 +4,10 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true,
+  eslint: {
+    // Don't fail build on ESLint warnings
+    ignoreDuringBuilds: false,
+  },
 
   experimental: {
     serverActions: {

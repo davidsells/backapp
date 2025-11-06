@@ -83,7 +83,6 @@ export class FileProcessor {
   ): Promise<ProcessingResult> {
     const startTime = Date.now();
     let filesProcessed = 0;
-    let totalBytes = 0;
 
     return new Promise((resolve, reject) => {
       const output = createWriteStream(outputPath);
@@ -119,7 +118,6 @@ export class FileProcessor {
       // Add files to archive
       for (const file of files) {
         archive.file(file.path, { name: file.relativePath });
-        totalBytes += file.size;
       }
 
       archive.finalize();
