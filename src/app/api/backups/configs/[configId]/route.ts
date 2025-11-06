@@ -43,7 +43,7 @@ const updateConfigSchema = z.object({
  * GET /api/backups/configs/[configId] - Get backup configuration by ID
  */
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { configId: string } }
 ) {
   try {
@@ -115,7 +115,7 @@ export async function PATCH(
  * DELETE /api/backups/configs/[configId] - Delete backup configuration
  */
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { configId: string } }
 ) {
   try {
