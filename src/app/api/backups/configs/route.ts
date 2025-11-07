@@ -33,6 +33,8 @@ const backupOptionsSchema = z.object({
 const createConfigSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   enabled: z.boolean().optional(),
+  executionMode: z.enum(['agent', 'server']).default('agent'),
+  agentId: z.string().optional().nullable(),
   sources: z.array(backupSourceSchema).min(1, 'At least one source is required'),
   destination: s3DestinationSchema,
   schedule: scheduleSchema.optional(), // Optional for manual-only backups
@@ -52,7 +54,25 @@ export async function GET() {
     const backupService = getBackupService();
     const configs = await backupService.listConfigs(session.user.id);
 
-    return NextResponse.json({ success: true, configs });
+    // Fetch configs with agent data from Prisma directly
+    const { prisma } = await import('@/lib/db/prisma');
+    const configsWithAgents = await prisma.backupConfig.findMany({
+      where: { userId: session.user.id },
+      include: {
+        agent: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            platform: true,
+            lastSeen: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return NextResponse.json({ success: true, configs: configsWithAgents });
   } catch (error) {
     console.error('Failed to list backup configs:', error);
     return NextResponse.json(
@@ -80,10 +100,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: errorMessage }, { status: 400 });
     }
 
+    const data = validationResult.data;
+
+    // Mode-specific validation
+    if (data.executionMode === 'agent') {
+      if (!data.agentId) {
+        return NextResponse.json(
+          { success: false, error: 'Agent ID is required for agent-based backups' },
+          { status: 400 }
+        );
+      }
+
+      // Verify agent exists and belongs to user
+      const { prisma } = await import('@/lib/db/prisma');
+      const agent = await prisma.agent.findUnique({
+        where: { id: data.agentId },
+      });
+
+      if (!agent) {
+        return NextResponse.json(
+          { success: false, error: 'Agent not found' },
+          { status: 404 }
+        );
+      }
+
+      if (agent.userId !== session.user.id) {
+        return NextResponse.json(
+          { success: false, error: 'Agent does not belong to user' },
+          { status: 403 }
+        );
+      }
+    }
+
     const backupService = getBackupService();
     const config = await backupService.createConfig({
       userId: session.user.id,
-      ...validationResult.data,
+      ...data,
     });
 
     return NextResponse.json({ success: true, config }, { status: 201 });

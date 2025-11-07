@@ -4,18 +4,10 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-
-interface BackupConfig {
-  id: string;
-  name: string;
-  enabled: boolean;
-  sources: Array<{ path: string }>;
-  destination: { bucket: string };
-  schedule?: { cronExpression: string } | null;
-}
+import { BackupConfigWithAgent, ExecutionMode } from '@/lib/types/backup.types';
 
 interface BackupConfigListProps {
-  configs: BackupConfig[];
+  configs: BackupConfigWithAgent[];
 }
 
 export function BackupConfigList({ configs }: BackupConfigListProps) {
@@ -40,7 +32,6 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
 
       if (data.success) {
         setSuccess(`Backup "${configName}" started successfully!`);
-        // Refresh the page to show updated stats/logs
         router.refresh();
       } else {
         setError(data.error || 'Failed to start backup');
@@ -54,6 +45,42 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
         return next;
       });
     }
+  };
+
+  const getExecutionModeBadge = (mode: ExecutionMode) => {
+    return mode === 'agent' ? (
+      <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 font-medium">
+        Agent-Based
+      </span>
+    ) : (
+      <span className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-700 font-medium">
+        Server-Side
+      </span>
+    );
+  };
+
+  const getAgentStatusIndicator = (status: string) => {
+    switch (status) {
+      case 'online':
+        return '🟢';
+      case 'offline':
+        return '🔴';
+      case 'error':
+        return '⚠️';
+      default:
+        return '⚫';
+    }
+  };
+
+  const getScheduleDescription = (schedule?: { cronExpression: string } | null) => {
+    if (!schedule?.cronExpression) return 'Manual-only';
+
+    const cron = schedule.cronExpression;
+    if (cron === '0 2 * * *') return 'Daily at 2 AM';
+    if (cron === '0 0 * * 0') return 'Weekly';
+    if (cron === '0 0 1 * *') return 'Monthly';
+
+    return cron;
   };
 
   if (configs.length === 0) {
@@ -87,10 +114,10 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
         return (
           <div
             key={config.id}
-            className="flex items-center justify-between p-4 border rounded-lg"
+            className="flex items-center justify-between p-4 border rounded-lg hover:shadow-md transition-shadow"
           >
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
+            <div className="space-y-2 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-semibold">{config.name}</h3>
                 <span
                   className={`text-xs px-2 py-1 rounded ${
@@ -101,6 +128,7 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
                 >
                   {config.enabled ? 'Enabled' : 'Disabled'}
                 </span>
+                {getExecutionModeBadge(config.executionMode)}
                 {!config.schedule && (
                   <span className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-700">
                     Manual-only
@@ -112,20 +140,63 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
                   </span>
                 )}
               </div>
+
+              {/* Configuration details */}
               <div className="text-sm text-muted-foreground">
                 <span>{config.sources.length} source(s)</span>
                 <span className="mx-2">•</span>
-                <span>{config.destination.bucket}</span>
-                <span className="mx-2">•</span>
-                <span>{config.schedule ? config.schedule.cronExpression : 'Manual trigger only'}</span>
+
+                {/* Agent-based info */}
+                {config.executionMode === 'agent' && config.agent && (
+                  <>
+                    <span>
+                      Agent: {config.agent.name} {getAgentStatusIndicator(config.agent.status)}
+                    </span>
+                    <span className="mx-2">•</span>
+                  </>
+                )}
+
+                {/* Server-side info */}
+                {config.executionMode === 'server' && (
+                  <>
+                    <span>{config.destination.bucket}</span>
+                    <span className="mx-2">•</span>
+                  </>
+                )}
+
+                <span>{getScheduleDescription(config.schedule)}</span>
               </div>
+
+              {/* Agent-specific warnings */}
+              {config.executionMode === 'agent' && config.agent && config.agent.status !== 'online' && (
+                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-3 py-2 rounded text-sm">
+                  {config.agent.status === 'offline' && (
+                    <>⚠️ Agent is offline. Scheduled backups will not run.</>
+                  )}
+                  {config.agent.status === 'error' && (
+                    <>⚠️ Agent has errors. Please check agent status.</>
+                  )}
+                </div>
+              )}
+
+              {config.executionMode === 'agent' && !config.agent && (
+                <div className="bg-red-50 border border-red-200 text-red-800 px-3 py-2 rounded text-sm">
+                  ❌ Agent not found. Please update configuration.
+                </div>
+              )}
             </div>
-            <div className="flex gap-2">
+
+            <div className="flex gap-2 ml-4">
               <Button
                 onClick={() => triggerBackup(config.id, config.name)}
-                disabled={isRunning}
+                disabled={isRunning || (config.executionMode === 'agent' && config.agent?.status !== 'online')}
                 size="sm"
                 variant="default"
+                title={
+                  config.executionMode === 'agent' && config.agent?.status !== 'online'
+                    ? 'Agent must be online to run backup'
+                    : 'Run backup now'
+                }
               >
                 {isRunning ? 'Running...' : 'Run Now'}
               </Button>

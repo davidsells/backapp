@@ -4,6 +4,8 @@ export interface BackupSource {
   includePatterns?: string[];
 }
 
+export type ExecutionMode = 'agent' | 'server';
+
 export interface S3Destination {
   bucket: string;
   region: string;
@@ -30,6 +32,8 @@ export interface BackupConfig {
   userId: string;
   name: string;
   enabled: boolean;
+  executionMode: ExecutionMode;
+  agentId?: string | null;
   sources: BackupSource[];
   destination: S3Destination;
   schedule?: ScheduleConfig | null;
@@ -66,4 +70,17 @@ export interface BackupResult {
 export interface ValidationResult {
   valid: boolean;
   errors?: string[];
+}
+
+// Agent types for backup configuration
+export interface Agent {
+  id: string;
+  name: string;
+  status: 'online' | 'offline' | 'error';
+  platform?: string;
+  lastSeen?: Date | null;
+}
+
+export interface BackupConfigWithAgent extends BackupConfig {
+  agent?: Agent | null;
 }

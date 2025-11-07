@@ -13,6 +13,8 @@ export interface CreateBackupConfigInput {
   userId: string;
   name: string;
   enabled?: boolean;
+  executionMode: 'agent' | 'server';
+  agentId?: string | null;
   sources: BackupSource[];
   destination: S3Destination;
   schedule?: ScheduleConfig;
@@ -22,6 +24,8 @@ export interface CreateBackupConfigInput {
 export interface UpdateBackupConfigInput {
   name?: string;
   enabled?: boolean;
+  executionMode?: 'agent' | 'server';
+  agentId?: string | null;
   sources?: BackupSource[];
   destination?: S3Destination;
   schedule?: ScheduleConfig;
@@ -46,6 +50,8 @@ export class BackupService {
         userId: input.userId,
         name: input.name,
         enabled: input.enabled ?? true,
+        executionMode: input.executionMode || 'server',
+        agentId: input.agentId || null,
         sources: input.sources as any,
         destination: input.destination as any,
         schedule: input.schedule ? (input.schedule as any) : null,
@@ -102,6 +108,8 @@ export class BackupService {
       data: {
         ...(input.name && { name: input.name }),
         ...(input.enabled !== undefined && { enabled: input.enabled }),
+        ...(input.executionMode && { executionMode: input.executionMode }),
+        ...(input.agentId !== undefined && { agentId: input.agentId }),
         ...(input.sources && { sources: input.sources as any }),
         ...(input.destination && { destination: input.destination as any }),
         ...(input.schedule && { schedule: input.schedule as any }),
@@ -288,6 +296,8 @@ export class BackupService {
       userId: config.userId,
       name: config.name,
       enabled: config.enabled,
+      executionMode: config.executionMode || 'server',
+      agentId: config.agentId || null,
       sources: config.sources as unknown as BackupSource[],
       destination: config.destination as unknown as S3Destination,
       schedule: config.schedule ? (config.schedule as unknown as ScheduleConfig) : null,
