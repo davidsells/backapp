@@ -12,7 +12,7 @@ const updateSettingsSchema = z.object({
  * GET /api/admin/settings - Get current app settings
  */
 export async function GET() {
-  const { error, session } = await requireAdminApi();
+  const { error } = await requireAdminApi();
   if (error) return error;
 
   try {
@@ -33,7 +33,7 @@ export async function GET() {
  * PATCH /api/admin/settings - Update app settings
  */
 export async function PATCH(request: NextRequest) {
-  const { error, session } = await requireAdminApi();
+  const { error } = await requireAdminApi();
   if (error) return error;
 
   try {

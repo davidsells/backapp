@@ -6,7 +6,7 @@ import { getUserManagementService } from '@/lib/admin/user-management-service';
  * GET /api/admin/users/pending - Get pending users awaiting approval
  */
 export async function GET() {
-  const { error, session } = await requireAdminApi();
+  const { error } = await requireAdminApi();
   if (error) return error;
 
   try {

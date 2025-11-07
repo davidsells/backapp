@@ -9,7 +9,7 @@ export async function PATCH(
   _request: NextRequest,
   { params }: { params: { userId: string } }
 ) {
-  const { error, session } = await requireAdminApi();
+  const { error } = await requireAdminApi();
   if (error) return error;
 
   try {

@@ -7,7 +7,7 @@ import { getUserManagementService } from '@/lib/admin/user-management-service';
  * Query params: includeDeleted (optional)
  */
 export async function GET(request: NextRequest) {
-  const { error, session } = await requireAdminApi();
+  const { error } = await requireAdminApi();
   if (error) return error;
 
   try {
