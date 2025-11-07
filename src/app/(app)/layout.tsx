@@ -58,6 +58,12 @@ export default async function AppLayout({
                 Backups
               </Link>
               <Link
+                href="/agents"
+                className="text-sm font-medium transition-colors hover:text-primary"
+              >
+                Agents
+              </Link>
+              <Link
                 href="/reports"
                 className="text-sm font-medium transition-colors hover:text-primary"
               >
