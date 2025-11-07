@@ -56,6 +56,8 @@ export class BackupExecutor {
         userId: config.userId,
         name: config.name,
         enabled: config.enabled,
+        executionMode: (config.executionMode as 'agent' | 'server') || 'server',
+        agentId: config.agentId || null,
         sources: config.sources as unknown as BackupSource[],
         destination: config.destination as unknown as any,
         schedule: config.schedule as unknown as any,
