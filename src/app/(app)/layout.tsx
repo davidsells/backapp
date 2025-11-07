@@ -63,6 +63,14 @@ export default async function AppLayout({
               >
                 Reports
               </Link>
+              {session.user?.role === 'admin' && (
+                <Link
+                  href="/admin"
+                  className="text-sm font-medium transition-colors hover:text-primary"
+                >
+                  Admin
+                </Link>
+              )}
             </nav>
           </div>
           <div className="flex items-center space-x-4">
