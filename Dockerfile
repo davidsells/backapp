@@ -6,7 +6,8 @@ WORKDIR /app
 
 # Copy package files
 COPY package.json package-lock.json* ./
-RUN npm ci
+# Use npm install to update lock file when dependencies change
+RUN npm install
 
 # Stage 2: Builder
 FROM node:20-alpine AS builder
