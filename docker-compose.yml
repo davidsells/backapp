@@ -53,6 +53,9 @@ services:
       - backapp-network
     volumes:
       - ./logs:/app/logs
+      # Mount directories you want to backup
+      # Add your local directories here - they'll be accessible inside the container at /backup-sources
+      - /Users/davidsells:/backup-sources/davidsells:ro  # ro = read-only for safety
 
   # LocalStack (S3 Mock for Development)
   localstack:
