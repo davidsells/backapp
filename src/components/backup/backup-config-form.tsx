@@ -294,7 +294,10 @@ export function BackupConfigForm({ initialData }: { initialData?: Partial<FormDa
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      schedule: { ...formData.schedule!, cronExpression: e.target.value, timezone: formData.schedule?.timezone || 'UTC' },
+                      schedule: {
+                        cronExpression: e.target.value,
+                        timezone: formData.schedule?.timezone || 'UTC'
+                      },
                     })
                   }
                   required
@@ -309,7 +312,10 @@ export function BackupConfigForm({ initialData }: { initialData?: Partial<FormDa
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      schedule: { ...formData.schedule!, cronExpression: formData.schedule?.cronExpression || '0 2 * * *', timezone: e.target.value },
+                      schedule: {
+                        cronExpression: formData.schedule?.cronExpression || '0 2 * * *',
+                        timezone: e.target.value
+                      },
                     })
                   }
                   required

@@ -15,7 +15,7 @@ export interface CreateBackupConfigInput {
   enabled?: boolean;
   sources: BackupSource[];
   destination: S3Destination;
-  schedule: ScheduleConfig;
+  schedule?: ScheduleConfig;
   options: BackupOptions;
 }
 
@@ -48,7 +48,7 @@ export class BackupService {
         enabled: input.enabled ?? true,
         sources: input.sources as any,
         destination: input.destination as any,
-        schedule: input.schedule as any,
+        schedule: input.schedule ? (input.schedule as any) : null,
         options: input.options as any,
       },
     });
@@ -229,12 +229,14 @@ export class BackupService {
       errors.push('S3 region is required');
     }
 
-    // Validate schedule
-    if (!input.schedule.cronExpression) {
-      errors.push('Cron expression is required');
-    }
-    if (!input.schedule.timezone) {
-      errors.push('Timezone is required');
+    // Validate schedule (only if provided - manual-only backups don't need schedule)
+    if (input.schedule) {
+      if (!input.schedule.cronExpression) {
+        errors.push('Cron expression is required');
+      }
+      if (!input.schedule.timezone) {
+        errors.push('Timezone is required');
+      }
     }
 
     // Validate options
@@ -288,7 +290,7 @@ export class BackupService {
       enabled: config.enabled,
       sources: config.sources as unknown as BackupSource[],
       destination: config.destination as unknown as S3Destination,
-      schedule: config.schedule as unknown as ScheduleConfig,
+      schedule: config.schedule ? (config.schedule as unknown as ScheduleConfig) : null,
       options: config.options as unknown as BackupOptions,
       createdAt: config.createdAt,
       updatedAt: config.updatedAt,
