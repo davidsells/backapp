@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: errorMessage }, { status: 400 });
     }
 
-    const { configId, filename, filesize } = validationResult.data;
+    const { configId, filename } = validationResult.data;
 
     // Verify config belongs to this agent
     const config = await prisma.backupConfig.findFirst({

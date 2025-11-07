@@ -126,9 +126,9 @@ export function AgentManagement({ agents }: AgentManagementProps) {
               </div>
             </div>
             <div className="text-sm text-muted-foreground">
-              Store this API key in your agent's config.json file. You'll need it to authenticate the agent.
+              Store this API key in your agent&apos;s config.json file. You&apos;ll need it to authenticate the agent.
             </div>
-            <Button onClick={closeApiKeyDialog}>I've Saved the API Key</Button>
+            <Button onClick={closeApiKeyDialog}>I&apos;ve Saved the API Key</Button>
           </CardContent>
         </Card>
       )}
