@@ -16,6 +16,8 @@ model User {
   name         String
   passwordHash String         @map("password_hash")
   role         String         @default("user")
+  approved     Boolean        @default(true) // false for new registrations when approval required
+  deletedAt    DateTime?      @map("deleted_at") // Soft delete
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")
   configs      BackupConfig[]
@@ -81,4 +83,14 @@ model Alert {
   @@index([userId])
   @@index([configId])
   @@map("alerts")
+}
+
+model AppSettings {
+  id                     String   @id @default(uuid())
+  registrationEnabled    Boolean  @default(false) @map("registration_enabled")
+  requireApproval        Boolean  @default(true) @map("require_approval")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@map("app_settings")
 }

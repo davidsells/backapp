@@ -26,6 +26,10 @@ class AuthService {
    * Register a new user
    */
   async registerUser(data: RegisterData): Promise<User> {
+    // Get app settings to check if approval is required
+    const settings = await prisma.appSettings.findFirst();
+    const requireApproval = settings?.requireApproval ?? true;
+
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { email: data.email },
@@ -43,13 +47,14 @@ class AuthService {
     // Hash password
     const passwordHash = await this.hashPassword(data.password);
 
-    // Create user
+    // Create user (approved=false if approval required)
     const user = await prisma.user.create({
       data: {
         email: data.email,
         name: data.name,
         passwordHash,
         role: 'user',
+        approved: !requireApproval, // Auto-approve if not required
       },
       select: {
         id: true,
@@ -77,6 +82,16 @@ class AuthService {
 
     if (!user) {
       return null;
+    }
+
+    // Check if user is soft-deleted
+    if (user.deletedAt) {
+      return null;
+    }
+
+    // Check if user is approved
+    if (!user.approved) {
+      throw new Error('Your account is pending approval. Please contact an administrator.');
     }
 
     const isValid = await this.verifyPassword(password, user.passwordHash);

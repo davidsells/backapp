@@ -1,6 +1,9 @@
-import { redirect } from 'next/navigation';
+import { RegisterForm } from '@/components/auth/register-form';
 
 export default function RegisterPage() {
-  // Registration is currently disabled
-  redirect('/login');
+  return (
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <RegisterForm />
+    </div>
+  );
 }
