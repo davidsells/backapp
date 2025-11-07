@@ -28,6 +28,8 @@ export function AgentManagement({ agents }: AgentManagementProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [newAgent, setNewAgent] = useState<{ name: string; apiKey: string } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +72,34 @@ export function AgentManagement({ agents }: AgentManagementProps) {
 
   const closeApiKeyDialog = () => {
     setNewAgent(null);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
+
+    setDeleteLoading(true);
+    setError('');
+
+    try {
+      const res = await fetch(`/api/agents/${deleteConfirm.id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to delete agent');
+      }
+
+      // Close dialog and refresh
+      setDeleteConfirm(null);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete agent');
+      setDeleteConfirm(null);
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -129,6 +159,39 @@ export function AgentManagement({ agents }: AgentManagementProps) {
               Store this API key in your agent&apos;s config.json file. You&apos;ll need it to authenticate the agent.
             </div>
             <Button onClick={closeApiKeyDialog}>I&apos;ve Saved the API Key</Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirm && (
+        <Card className="border-2 border-red-500">
+          <CardHeader>
+            <CardTitle>Delete Agent?</CardTitle>
+            <CardDescription>
+              Are you sure you want to delete &quot;{deleteConfirm.name}&quot;?
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              This will permanently delete the agent and all its logs. Any backup configurations using this agent will be unassigned but not deleted.
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleDelete}
+                disabled={deleteLoading}
+                variant="destructive"
+              >
+                {deleteLoading ? 'Deleting...' : 'Delete Agent'}
+              </Button>
+              <Button
+                onClick={() => setDeleteConfirm(null)}
+                disabled={deleteLoading}
+                variant="outline"
+              >
+                Cancel
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -222,6 +285,15 @@ export function AgentManagement({ agents }: AgentManagementProps) {
                       <div>Last seen: {formatLastSeen(agent.lastSeen)}</div>
                       <div>Created: {new Date(agent.createdAt).toLocaleDateString()}</div>
                     </div>
+                  </div>
+                  <div>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setDeleteConfirm({ id: agent.id, name: agent.name })}
+                    >
+                      Delete
+                    </Button>
                   </div>
                 </div>
               </CardContent>
