@@ -51,9 +51,6 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const backupService = getBackupService();
-    const configs = await backupService.listConfigs(session.user.id);
-
     // Fetch configs with agent data from Prisma directly
     const { prisma } = await import('@/lib/db/prisma');
     const configsWithAgents = await prisma.backupConfig.findMany({

@@ -67,7 +67,7 @@ export class S3Adapter implements IS3Adapter {
         const percentage = progress.loaded && progress.total
           ? (progress.loaded / progress.total) * 100
           : 0;
-        options.onProgress!(percentage);
+        options.onProgress?.(percentage);
       });
     }
 
