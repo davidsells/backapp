@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { getBackupService } from '@/lib/backup/backup-service';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { BackupConfigList } from '@/components/backup/backup-config-list';
 
 async function BackupsList() {
   const session = await auth();
@@ -65,57 +66,7 @@ async function BackupsList() {
           </div>
         </CardHeader>
         <CardContent>
-          {configs.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground mb-4">No backup configurations yet</p>
-              <Link href="/backups/new">
-                <Button>Create Your First Backup</Button>
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {configs.map((config) => (
-                <div
-                  key={config.id}
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold">{config.name}</h3>
-                      <span
-                        className={`text-xs px-2 py-1 rounded ${
-                          config.enabled
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        {config.enabled ? 'Enabled' : 'Disabled'}
-                      </span>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      <span>{config.sources.length} source(s)</span>
-                      <span className="mx-2">•</span>
-                      <span>{config.destination.bucket}</span>
-                      <span className="mx-2">•</span>
-                      <span>{config.schedule.cronExpression}</span>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Link href={`/backups/${config.id}`}>
-                      <Button variant="outline" size="sm">
-                        View
-                      </Button>
-                    </Link>
-                    <Link href={`/backups/${config.id}/edit`}>
-                      <Button variant="outline" size="sm">
-                        Edit
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <BackupConfigList configs={configs} />
         </CardContent>
       </Card>
     </div>
