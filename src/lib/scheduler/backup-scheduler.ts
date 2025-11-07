@@ -51,6 +51,12 @@ export class BackupScheduler {
         return;
       }
 
+      // Skip manual-only backups (no schedule)
+      if (!config.schedule) {
+        console.log(`[Scheduler] Config ${configId} is manual-only (no schedule), skipping`);
+        return;
+      }
+
       // Cancel existing schedule if any
       this.cancelSchedule(configId);
 

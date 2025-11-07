@@ -11,7 +11,7 @@ interface BackupConfig {
   enabled: boolean;
   sources: Array<{ path: string }>;
   destination: { bucket: string };
-  schedule: { cronExpression: string };
+  schedule?: { cronExpression: string } | null;
 }
 
 interface BackupConfigListProps {
@@ -101,6 +101,11 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
                 >
                   {config.enabled ? 'Enabled' : 'Disabled'}
                 </span>
+                {!config.schedule && (
+                  <span className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-700">
+                    Manual-only
+                  </span>
+                )}
                 {isRunning && (
                   <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700">
                     Running...
@@ -112,7 +117,7 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
                 <span className="mx-2">•</span>
                 <span>{config.destination.bucket}</span>
                 <span className="mx-2">•</span>
-                <span>{config.schedule.cronExpression}</span>
+                <span>{config.schedule ? config.schedule.cronExpression : 'Manual trigger only'}</span>
               </div>
             </div>
             <div className="flex gap-2">

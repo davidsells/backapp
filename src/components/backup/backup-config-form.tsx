@@ -23,7 +23,7 @@ interface FormData {
     prefix: string;
     endpoint: string;
   };
-  schedule: {
+  schedule?: {
     cronExpression: string;
     timezone: string;
   };
@@ -40,6 +40,7 @@ export function BackupConfigForm({ initialData }: { initialData?: Partial<FormDa
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [useSchedule, setUseSchedule] = useState(!!initialData?.schedule);
 
   const [formData, setFormData] = useState<FormData>({
     name: initialData?.name || '',
@@ -51,9 +52,9 @@ export function BackupConfigForm({ initialData }: { initialData?: Partial<FormDa
       prefix: initialData?.destination?.prefix || 'backups',
       endpoint: initialData?.destination?.endpoint || '',
     },
-    schedule: {
-      cronExpression: initialData?.schedule?.cronExpression || '0 2 * * *',
-      timezone: initialData?.schedule?.timezone || 'UTC',
+    schedule: initialData?.schedule || {
+      cronExpression: '0 2 * * *',
+      timezone: 'UTC',
     },
     options: {
       type: initialData?.options?.type || 'full',
@@ -70,10 +71,16 @@ export function BackupConfigForm({ initialData }: { initialData?: Partial<FormDa
     setError('');
 
     try {
+      // Only include schedule if useSchedule is enabled
+      const submitData = {
+        ...formData,
+        schedule: useSchedule ? formData.schedule : undefined,
+      };
+
       const response = await fetch('/api/backups/configs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData),
       });
 
       const data = await response.json();
@@ -148,6 +155,16 @@ export function BackupConfigForm({ initialData }: { initialData?: Partial<FormDa
               className="w-4 h-4"
             />
             <Label htmlFor="enabled">Enable this backup configuration</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="useSchedule"
+              checked={useSchedule}
+              onChange={(e) => setUseSchedule(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <Label htmlFor="useSchedule">Schedule automated backups (uncheck for manual-only)</Label>
           </div>
         </CardContent>
       </Card>
@@ -260,47 +277,49 @@ export function BackupConfigForm({ initialData }: { initialData?: Partial<FormDa
         </CardContent>
       </Card>
 
-      {/* Schedule */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Schedule</CardTitle>
-          <CardDescription>Configure when backups should run</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="cronExpression">Cron Expression</Label>
-              <Input
-                id="cronExpression"
-                value={formData.schedule.cronExpression}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    schedule: { ...formData.schedule, cronExpression: e.target.value },
-                  })
-                }
-                required
-                placeholder="0 2 * * * (Daily at 2 AM)"
-              />
+      {/* Schedule - Only show if useSchedule is enabled */}
+      {useSchedule && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Schedule</CardTitle>
+            <CardDescription>Configure when backups should run</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="cronExpression">Cron Expression</Label>
+                <Input
+                  id="cronExpression"
+                  value={formData.schedule?.cronExpression || ''}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      schedule: { ...formData.schedule!, cronExpression: e.target.value, timezone: formData.schedule?.timezone || 'UTC' },
+                    })
+                  }
+                  required
+                  placeholder="0 2 * * * (Daily at 2 AM)"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="timezone">Timezone</Label>
+                <Input
+                  id="timezone"
+                  value={formData.schedule?.timezone || ''}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      schedule: { ...formData.schedule!, cronExpression: formData.schedule?.cronExpression || '0 2 * * *', timezone: e.target.value },
+                    })
+                  }
+                  required
+                  placeholder="UTC"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="timezone">Timezone</Label>
-              <Input
-                id="timezone"
-                value={formData.schedule.timezone}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    schedule: { ...formData.schedule, timezone: e.target.value },
-                  })
-                }
-                required
-                placeholder="UTC"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Options */}
       <Card>

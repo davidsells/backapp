@@ -35,7 +35,7 @@ const createConfigSchema = z.object({
   enabled: z.boolean().optional(),
   sources: z.array(backupSourceSchema).min(1, 'At least one source is required'),
   destination: s3DestinationSchema,
-  schedule: scheduleSchema,
+  schedule: scheduleSchema.optional(), // Optional for manual-only backups
   options: backupOptionsSchema,
 });
 

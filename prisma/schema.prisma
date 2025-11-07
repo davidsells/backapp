@@ -34,7 +34,7 @@ model BackupConfig {
   enabled     Boolean     @default(true)
   sources     Json
   destination Json
-  schedule    Json
+  schedule    Json?       // Optional: null for manual-only backups
   options     Json
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
