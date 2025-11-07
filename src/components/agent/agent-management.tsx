@@ -74,6 +74,32 @@ export function AgentManagement({ agents }: AgentManagementProps) {
     setNewAgent(null);
   };
 
+  const handleDownload = async () => {
+    try {
+      // Download the agent zip file
+      const response = await fetch('/api/agent/download');
+
+      if (!response.ok) {
+        throw new Error('Failed to download agent');
+      }
+
+      // Create a blob from the response
+      const blob = await response.blob();
+
+      // Create a download link and trigger it
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'backapp-agent.zip';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to download agent');
+    }
+  };
+
   const handleDelete = async () => {
     if (!deleteConfirm) return;
 
@@ -195,6 +221,31 @@ export function AgentManagement({ agents }: AgentManagementProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* Download Agent Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Download Agent Software</CardTitle>
+          <CardDescription>
+            Download the BackApp agent to run backups from your local machine
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="text-sm text-muted-foreground space-y-2">
+            <p>To set up a backup agent on your device:</p>
+            <ol className="list-decimal list-inside space-y-1 ml-2">
+              <li>Download the agent software below</li>
+              <li>Extract the zip file to a directory on your device</li>
+              <li>Register a new agent to get an API key</li>
+              <li>Configure the agent with your API key</li>
+              <li>Run the agent to execute backups</li>
+            </ol>
+          </div>
+          <Button onClick={handleDownload} variant="outline">
+            Download Agent (ZIP)
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Register Form */}
       {showRegister && (
