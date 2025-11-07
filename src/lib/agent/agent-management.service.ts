@@ -1,5 +1,5 @@
 import { randomBytes } from 'crypto';
-import { hash } from 'bcryptjs';
+import { hash } from 'bcrypt';
 import { prisma } from '../db/prisma';
 
 export interface RegisterAgentInput {

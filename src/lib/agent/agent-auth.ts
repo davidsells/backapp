@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { compare } from 'bcryptjs';
+import { compare } from 'bcrypt';
 import { prisma } from '../db/prisma';
 
 export interface AgentAuthResult {
