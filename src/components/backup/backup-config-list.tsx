@@ -15,23 +15,15 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
   const [runningBackups, setRunningBackups] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
-  const [showAgentInstructions, setShowAgentInstructions] = useState<string | null>(null);
 
   const triggerBackup = async (configId: string, configName: string, executionMode: ExecutionMode) => {
     setError('');
     setSuccess('');
-
-    // For agent-based backups, show instructions instead of executing
-    if (executionMode === 'agent') {
-      setShowAgentInstructions(configName);
-      return;
-    }
-
-    // Server-side backup execution
     setRunningBackups(prev => new Set(prev).add(configId));
 
     try {
-      const res = await fetch('/api/backups/execute', {
+      // Use the unified request endpoint for both execution modes
+      const res = await fetch('/api/backups/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ configId }),
@@ -40,13 +32,17 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
       const data = await res.json();
 
       if (data.success) {
-        setSuccess(`Backup "${configName}" started successfully!`);
+        if (executionMode === 'agent') {
+          setSuccess(`Backup "${configName}" requested. Agent will execute within 10 minutes.`);
+        } else {
+          setSuccess(`Backup "${configName}" started successfully!`);
+        }
         router.refresh();
       } else {
-        setError(data.error || 'Failed to start backup');
+        setError(data.error || 'Failed to request backup');
       }
     } catch (err) {
-      setError('Failed to start backup');
+      setError('Failed to request backup');
     } finally {
       setRunningBackups(prev => {
         const next = new Set(prev);
@@ -114,29 +110,6 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
       {success && (
         <div className="p-4 bg-green-50 border border-green-200 rounded-md text-green-700">
           {success}
-        </div>
-      )}
-
-      {showAgentInstructions && (
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
-          <div className="flex justify-between items-start mb-2">
-            <h4 className="font-semibold text-blue-900">How to Run Agent-Based Backup</h4>
-            <button
-              onClick={() => setShowAgentInstructions(null)}
-              className="text-blue-600 hover:text-blue-800"
-            >
-              ✕
-            </button>
-          </div>
-          <p className="text-blue-800 text-sm mb-3">
-            To run backup &quot;{showAgentInstructions}&quot;, execute this command on the agent machine:
-          </p>
-          <div className="bg-blue-900 text-blue-50 p-3 rounded font-mono text-sm mb-2">
-            cd /path/to/agent && npm run manual
-          </div>
-          <p className="text-blue-700 text-xs">
-            💡 Tip: For scheduled backups, set up a cron job to run <code className="bg-blue-100 px-1 rounded">npm start</code> at regular intervals.
-          </p>
         </div>
       )}
 
@@ -221,18 +194,16 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
             <div className="flex gap-2 ml-4">
               <Button
                 onClick={() => triggerBackup(config.id, config.name, config.executionMode)}
-                disabled={isRunning || (config.executionMode === 'agent' && config.agent?.status !== 'online')}
+                disabled={isRunning}
                 size="sm"
                 variant="default"
                 title={
-                  config.executionMode === 'agent' && config.agent?.status !== 'online'
-                    ? 'Agent must be online to run backup'
-                    : config.executionMode === 'agent'
-                    ? 'Show instructions to run backup on agent'
+                  config.executionMode === 'agent'
+                    ? 'Request backup (agent will execute within 10 minutes)'
                     : 'Run backup now'
                 }
               >
-                {isRunning ? 'Running...' : config.executionMode === 'agent' ? 'How to Run' : 'Run Now'}
+                {isRunning ? 'Requesting...' : 'Run Now'}
               </Button>
               <Link href={`/backups/${config.id}`}>
                 <Button variant="outline" size="sm">

@@ -69,18 +69,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update backup log
-    await prisma.backupLog.update({
-      where: { id: logId },
-      data: {
-        endTime: new Date(),
-        status,
-        filesProcessed,
-        bytesTransferred: BigInt(bytesTransferred),
-        duration,
-        errors: errors && errors.length > 0 ? (errors as any) : null,
-      },
-    });
+    const now = new Date();
+
+    // Update backup log and config's lastRunAt in a transaction
+    await prisma.$transaction([
+      prisma.backupLog.update({
+        where: { id: logId },
+        data: {
+          endTime: now,
+          status,
+          filesProcessed,
+          bytesTransferred: BigInt(bytesTransferred),
+          duration,
+          errors: errors && errors.length > 0 ? (errors as any) : null,
+        },
+      }),
+      // Update the backup config's lastRunAt timestamp
+      prisma.backupConfig.update({
+        where: { id: log.configId },
+        data: {
+          lastRunAt: now,
+        },
+      }),
+    ]);
 
     // If backup failed, create alert
     if (status === 'failed') {

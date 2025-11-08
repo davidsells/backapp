@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db/prisma';
  * GET /api/agent/configs
  * Agent fetches assigned backup configurations
  * Returns configs where executionMode='agent' and agentId matches
+ * Includes configs with pending requests (requestedAt is set)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -32,6 +33,8 @@ export async function GET(request: NextRequest) {
         destination: true,
         schedule: true,
         options: true,
+        requestedAt: true,
+        lastRunAt: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -39,6 +42,23 @@ export async function GET(request: NextRequest) {
         createdAt: 'desc',
       },
     });
+
+    // Mark configs with pending requests as "picked up" by clearing requestedAt
+    // This prevents the agent from running the same backup multiple times
+    const requestedConfigIds = configs
+      .filter((c) => c.requestedAt !== null)
+      .map((c) => c.id);
+
+    if (requestedConfigIds.length > 0) {
+      await prisma.backupConfig.updateMany({
+        where: {
+          id: { in: requestedConfigIds },
+        },
+        data: {
+          requestedAt: null, // Clear the request flag
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,
@@ -49,6 +69,8 @@ export async function GET(request: NextRequest) {
         destination: config.destination,
         schedule: config.schedule,
         options: config.options,
+        requestedAt: config.requestedAt,
+        lastRunAt: config.lastRunAt,
         createdAt: config.createdAt,
         updatedAt: config.updatedAt,
       })),

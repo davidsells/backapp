@@ -10,11 +10,10 @@ import { filterDueConfigs, shouldRunBackup } from './schedule-checker.js';
  * BackApp Agent - Client-side backup execution
  */
 class Agent {
-  constructor(options = {}) {
+  constructor() {
     this.config = null;
     this.apiClient = null;
     this.logger = null;
-    this.options = options; // { manual: boolean }
   }
 
   /**
@@ -48,6 +47,9 @@ class Agent {
 
   /**
    * Run backup cycle
+   * Checks for:
+   * 1. Requested backups (user clicked "Run Now")
+   * 2. Scheduled backups (cron is due)
    */
   async run() {
     try {
@@ -62,16 +64,15 @@ class Agent {
 
       this.logger.info(`Found ${configs.length} backup configuration(s)`);
 
-      // Filter configs based on schedule and manual mode
-      const dueConfigs = filterDueConfigs(configs, { forceManual: this.options.manual });
+      // Filter configs based on schedule or request status
+      const dueConfigs = filterDueConfigs(configs);
 
       if (dueConfigs.length === 0) {
-        const mode = this.options.manual ? 'manual' : 'scheduled';
-        this.logger.info(`No ${mode} backups are due to run at this time`);
+        this.logger.info('No backups are due to run at this time');
 
         // Show why each config was skipped
         configs.forEach((config) => {
-          const check = shouldRunBackup(config, { forceManual: this.options.manual });
+          const check = shouldRunBackup(config);
           this.logger.debug(`Skipped "${config.name}": ${check.reason}`);
         });
 
@@ -118,17 +119,7 @@ class Agent {
  * Main entry point
  */
 async function main() {
-  // Parse command-line arguments
-  const args = process.argv.slice(2);
-  const isManual = args.includes('--manual') || args.includes('-m');
-
-  if (isManual) {
-    console.log('Running in MANUAL mode (one-off backups only)\n');
-  } else {
-    console.log('Running in SCHEDULED mode (cron-based backups)\n');
-  }
-
-  const agent = new Agent({ manual: isManual });
+  const agent = new Agent();
 
   const initialized = await agent.initialize();
   if (!initialized) {

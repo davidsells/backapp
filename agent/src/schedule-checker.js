@@ -1,35 +1,25 @@
 import parser from 'cron-parser';
 
 /**
- * Check if a backup configuration should run based on its schedule
+ * Check if a backup configuration should run based on its schedule or request status
  * @param {object} config - Backup configuration from server
  * @param {object} [options] - Options for schedule checking
- * @param {boolean} [options.forceManual] - If true, only run manual (no-schedule) configs
  * @returns {object} - {shouldRun: boolean, reason: string}
  */
-export function shouldRunBackup(config, options = {}) {
-  const { forceManual = false } = options;
-
-  // If config has no schedule, it's manual-only
-  if (!config.schedule || !config.schedule.cronExpression) {
-    if (forceManual) {
-      return {
-        shouldRun: true,
-        reason: 'Manual backup requested',
-      };
-    } else {
-      return {
-        shouldRun: false,
-        reason: 'Manual-only backup (no schedule)',
-      };
-    }
+export function shouldRunBackup(config) {
+  // Priority 1: Check if backup was explicitly requested (Run Now clicked in UI)
+  if (config.requestedAt) {
+    return {
+      shouldRun: true,
+      reason: 'Requested via Run Now (manual execution)',
+    };
   }
 
-  // If forceManual is true, skip scheduled backups
-  if (forceManual) {
+  // Priority 2: Check if config has no schedule (manual-only, requires requestedAt)
+  if (!config.schedule || !config.schedule.cronExpression) {
     return {
       shouldRun: false,
-      reason: 'Skipping scheduled backup in manual mode',
+      reason: 'No schedule defined. Use "Run Now" to execute.',
     };
   }
 
@@ -86,14 +76,13 @@ export function shouldRunBackup(config, options = {}) {
 /**
  * Filter configs to only those that should run
  * @param {Array} configs - Array of backup configurations
- * @param {object} [options] - Options for filtering
  * @returns {Array} - Filtered configs with reason
  */
-export function filterDueConfigs(configs, options = {}) {
+export function filterDueConfigs(configs) {
   return configs
     .map((config) => ({
       config,
-      check: shouldRunBackup(config, options),
+      check: shouldRunBackup(config),
     }))
     .filter((item) => item.check.shouldRun)
     .map((item) => ({

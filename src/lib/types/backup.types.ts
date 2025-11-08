@@ -38,6 +38,8 @@ export interface BackupConfig {
   destination: S3Destination;
   schedule?: ScheduleConfig | null;
   options: BackupOptions;
+  requestedAt?: Date | null;  // Set when user clicks "Run Now"
+  lastRunAt?: Date | null;     // Timestamp of last execution
   createdAt: Date;
   updatedAt: Date;
 }

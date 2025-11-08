@@ -39,6 +39,8 @@ model BackupConfig {
   options       Json
   agentId       String?     @map("agent_id") // null = server-side backup
   executionMode String      @default("server") // "server" or "agent"
+  requestedAt   DateTime?   @map("requested_at") // Set when user clicks "Run Now"
+  lastRunAt     DateTime?   @map("last_run_at") // Timestamp of last execution
   createdAt     DateTime    @default(now()) @map("created_at")
   updatedAt     DateTime    @updatedAt @map("updated_at")
   user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -48,6 +50,7 @@ model BackupConfig {
 
   @@index([userId])
   @@index([agentId])
+  @@index([requestedAt])
   @@map("backup_configs")
 }
 
