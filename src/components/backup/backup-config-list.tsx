@@ -15,10 +15,19 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
   const [runningBackups, setRunningBackups] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
+  const [showAgentInstructions, setShowAgentInstructions] = useState<string | null>(null);
 
-  const triggerBackup = async (configId: string, configName: string) => {
+  const triggerBackup = async (configId: string, configName: string, executionMode: ExecutionMode) => {
     setError('');
     setSuccess('');
+
+    // For agent-based backups, show instructions instead of executing
+    if (executionMode === 'agent') {
+      setShowAgentInstructions(configName);
+      return;
+    }
+
+    // Server-side backup execution
     setRunningBackups(prev => new Set(prev).add(configId));
 
     try {
@@ -108,6 +117,29 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
         </div>
       )}
 
+      {showAgentInstructions && (
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+          <div className="flex justify-between items-start mb-2">
+            <h4 className="font-semibold text-blue-900">How to Run Agent-Based Backup</h4>
+            <button
+              onClick={() => setShowAgentInstructions(null)}
+              className="text-blue-600 hover:text-blue-800"
+            >
+              ✕
+            </button>
+          </div>
+          <p className="text-blue-800 text-sm mb-3">
+            To run backup &quot;{showAgentInstructions}&quot;, execute this command on the agent machine:
+          </p>
+          <div className="bg-blue-900 text-blue-50 p-3 rounded font-mono text-sm mb-2">
+            cd /path/to/agent && npm run manual
+          </div>
+          <p className="text-blue-700 text-xs">
+            💡 Tip: For scheduled backups, set up a cron job to run <code className="bg-blue-100 px-1 rounded">npm start</code> at regular intervals.
+          </p>
+        </div>
+      )}
+
       {configs.map((config) => {
         const isRunning = runningBackups.has(config.id);
 
@@ -188,17 +220,19 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
 
             <div className="flex gap-2 ml-4">
               <Button
-                onClick={() => triggerBackup(config.id, config.name)}
+                onClick={() => triggerBackup(config.id, config.name, config.executionMode)}
                 disabled={isRunning || (config.executionMode === 'agent' && config.agent?.status !== 'online')}
                 size="sm"
                 variant="default"
                 title={
                   config.executionMode === 'agent' && config.agent?.status !== 'online'
                     ? 'Agent must be online to run backup'
+                    : config.executionMode === 'agent'
+                    ? 'Show instructions to run backup on agent'
                     : 'Run backup now'
                 }
               >
-                {isRunning ? 'Running...' : 'Run Now'}
+                {isRunning ? 'Running...' : config.executionMode === 'agent' ? 'How to Run' : 'Run Now'}
               </Button>
               <Link href={`/backups/${config.id}`}>
                 <Button variant="outline" size="sm">
