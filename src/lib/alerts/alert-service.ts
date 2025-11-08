@@ -1,4 +1,5 @@
 import { prisma } from '../db/prisma';
+import { getEmailService } from '../email/email-service';
 
 export type AlertType = 'failure' | 'warning' | 'info';
 
@@ -133,12 +134,36 @@ export class AlertService {
     error: string
   ) {
     const message = `Backup "${configName}" failed: ${error}`;
-    return this.createAlert({
+    const alert = await this.createAlert({
       userId,
       configId,
       type: 'failure',
       message,
     });
+
+    // Send email notification
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true },
+      });
+
+      if (user?.email) {
+        const emailService = getEmailService();
+        if (emailService.isConfigured()) {
+          await emailService.sendBackupFailureNotification(
+            user.email,
+            configName,
+            error
+          );
+        }
+      }
+    } catch (emailError) {
+      // Log but don't fail the alert creation if email fails
+      console.error('[Alert] Failed to send email notification:', emailError);
+    }
+
+    return alert;
   }
 
   /**
@@ -150,12 +175,35 @@ export class AlertService {
     configName: string
   ) {
     const message = `Backup "${configName}" timed out. Agent may not be running.`;
-    return this.createAlert({
+    const alert = await this.createAlert({
       userId,
       configId,
       type: 'warning',
       message,
     });
+
+    // Send email notification
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true },
+      });
+
+      if (user?.email) {
+        const emailService = getEmailService();
+        if (emailService.isConfigured()) {
+          await emailService.sendBackupTimeoutNotification(
+            user.email,
+            configName
+          );
+        }
+      }
+    } catch (emailError) {
+      // Log but don't fail the alert creation if email fails
+      console.error('[Alert] Failed to send email notification:', emailError);
+    }
+
+    return alert;
   }
 }
 
