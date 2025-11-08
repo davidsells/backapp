@@ -36,7 +36,7 @@ const createConfigSchema = z.object({
   executionMode: z.enum(['agent', 'server']).default('agent'),
   agentId: z.string().optional().nullable(),
   sources: z.array(backupSourceSchema).min(1, 'At least one source is required'),
-  destination: s3DestinationSchema,
+  destination: s3DestinationSchema.optional(), // Optional for agent-based backups
   schedule: scheduleSchema.optional(), // Optional for manual-only backups
   options: backupOptionsSchema,
 });
@@ -129,10 +129,38 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Prepare S3 destination - use env vars for agent-based backups
+    let destination = data.destination;
+    if (data.executionMode === 'agent') {
+      // For agent-based backups, use application S3 configuration from environment
+      destination = {
+        bucket: process.env.AWS_S3_BUCKET || process.env.DEFAULT_S3_BUCKET || '',
+        region: process.env.AWS_REGION || process.env.DEFAULT_S3_REGION || 'us-east-1',
+        prefix: data.destination?.prefix || `backups/${session.user.id}/`,
+        endpoint: process.env.AWS_ENDPOINT || process.env.DEFAULT_S3_ENDPOINT,
+      };
+
+      if (!destination.bucket) {
+        return NextResponse.json(
+          { success: false, error: 'S3 bucket not configured. Please set AWS_S3_BUCKET in environment variables.' },
+          { status: 500 }
+        );
+      }
+    } else if (data.executionMode === 'server') {
+      // For server-side, require destination to be provided
+      if (!destination || !destination.bucket || !destination.region) {
+        return NextResponse.json(
+          { success: false, error: 'S3 bucket and region are required for server-side backups' },
+          { status: 400 }
+        );
+      }
+    }
+
     const backupService = getBackupService();
     const config = await backupService.createConfig({
       userId: session.user.id,
       ...data,
+      destination,
     });
 
     return NextResponse.json({ success: true, config }, { status: 201 });

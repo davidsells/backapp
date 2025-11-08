@@ -118,7 +118,8 @@ export function BackupConfigForm({ initialData }: { initialData?: Partial<FormDa
         executionMode: formData.executionMode,
         agentId: formData.executionMode === 'agent' ? formData.agentId : null,
         sources: formData.sources,
-        destination: formData.destination,
+        // Only include destination for server-side backups
+        ...(formData.executionMode === 'server' && { destination: formData.destination }),
         schedule: useSchedule ? formData.schedule : undefined,
         options: formData.options,
       };
