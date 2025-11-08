@@ -76,6 +76,16 @@ export class BackupService {
     const configs = await prisma.backupConfig.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
+      include: {
+        agent: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            platform: true,
+          },
+        },
+      },
     });
 
     return configs.map((config) => this.mapToBackupConfig(config));

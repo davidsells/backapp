@@ -30,14 +30,37 @@ const backupOptionsSchema = z.object({
   bandwidth: z.number().optional(),
 });
 
-const createConfigSchema = z.object({
+// Base schema for both modes
+const baseConfigSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   enabled: z.boolean().optional(),
+  executionMode: z.enum(['agent', 'server'], {
+    errorMap: () => ({ message: 'Execution mode must be either "agent" or "server"' }),
+  }),
   sources: z.array(backupSourceSchema).min(1, 'At least one source is required'),
-  destination: s3DestinationSchema,
   schedule: scheduleSchema.optional(), // Optional for manual-only backups
   options: backupOptionsSchema,
 });
+
+// Agent-based config schema
+const agentConfigSchema = baseConfigSchema.extend({
+  executionMode: z.literal('agent'),
+  agentId: z.string().min(1, 'Agent ID is required for agent-based backups'),
+  destination: s3DestinationSchema.optional(), // Optional, will use app defaults
+});
+
+// Server-side config schema
+const serverConfigSchema = baseConfigSchema.extend({
+  executionMode: z.literal('server'),
+  agentId: z.string().optional().nullable(),
+  destination: s3DestinationSchema,
+});
+
+// Union of both schemas
+const createConfigSchema = z.discriminatedUnion('executionMode', [
+  agentConfigSchema,
+  serverConfigSchema,
+]);
 
 /**
  * GET /api/backups/configs - List all backup configurations
@@ -80,10 +103,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: errorMessage }, { status: 400 });
     }
 
+    const data = validationResult.data;
+
+    // For agent-based configs, validate agent ownership
+    if (data.executionMode === 'agent') {
+      const { getAgentManagementService } = await import('@/lib/agent/agent-management.service');
+      const agentService = getAgentManagementService();
+
+      const agent = await agentService.getAgent(data.agentId, session.user.id);
+      if (!agent) {
+        return NextResponse.json(
+          { success: false, error: 'Agent not found or does not belong to you' },
+          { status: 404 }
+        );
+      }
+
+      // Apply default S3 configuration from environment if not provided
+      if (!data.destination) {
+        data.destination = {
+          bucket: process.env.AWS_S3_BUCKET || '',
+          region: process.env.AWS_REGION || 'us-east-1',
+          prefix: '', // Will be constructed as users/{userId}/agents/{agentId}/...
+          endpoint: process.env.AWS_S3_ENDPOINT || '',
+        };
+      }
+    }
+
     const backupService = getBackupService();
     const config = await backupService.createConfig({
       userId: session.user.id,
-      ...validationResult.data,
+      ...data,
     });
 
     return NextResponse.json({ success: true, config }, { status: 201 });

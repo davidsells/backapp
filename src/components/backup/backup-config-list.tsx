@@ -9,6 +9,13 @@ interface BackupConfig {
   id: string;
   name: string;
   enabled: boolean;
+  executionMode?: string;
+  agent?: {
+    id: string;
+    name: string;
+    status: string;
+    platform: string | null;
+  } | null;
   sources: Array<{ path: string }>;
   destination: { bucket: string };
   schedule?: { cronExpression: string } | null;
@@ -67,6 +74,15 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
     );
   }
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'online': return 'bg-green-100 text-green-700';
+      case 'offline': return 'bg-gray-100 text-gray-700';
+      case 'error': return 'bg-red-100 text-red-700';
+      default: return 'bg-gray-100 text-gray-700';
+    }
+  };
+
   return (
     <div className="space-y-4">
       {error && (
@@ -83,6 +99,7 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
 
       {configs.map((config) => {
         const isRunning = runningBackups.has(config.id);
+        const isAgentBased = config.executionMode === 'agent';
 
         return (
           <div
@@ -101,6 +118,16 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
                 >
                   {config.enabled ? 'Enabled' : 'Disabled'}
                 </span>
+                {isAgentBased && (
+                  <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700">
+                    Agent-Based
+                  </span>
+                )}
+                {config.executionMode === 'server' && (
+                  <span className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-700">
+                    Server-Side
+                  </span>
+                )}
                 {!config.schedule && (
                   <span className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-700">
                     Manual-only
@@ -115,7 +142,16 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
               <div className="text-sm text-muted-foreground">
                 <span>{config.sources.length} source(s)</span>
                 <span className="mx-2">•</span>
-                <span>{config.destination.bucket}</span>
+                {isAgentBased && config.agent ? (
+                  <>
+                    <span>Agent: {config.agent.name}</span>
+                    <span className={`ml-2 text-xs px-2 py-0.5 rounded ${getStatusColor(config.agent.status)}`}>
+                      {config.agent.status}
+                    </span>
+                  </>
+                ) : (
+                  <span>{config.destination?.bucket || 'No destination'}</span>
+                )}
                 <span className="mx-2">•</span>
                 <span>{config.schedule ? config.schedule.cronExpression : 'Manual trigger only'}</span>
               </div>
