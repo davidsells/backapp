@@ -4,15 +4,17 @@ import { loadConfig } from './config.js';
 import { ApiClient } from './api-client.js';
 import { BackupExecutor } from './backup-executor.js';
 import { Logger } from './logger.js';
+import { filterDueConfigs, shouldRunBackup } from './schedule-checker.js';
 
 /**
  * BackApp Agent - Client-side backup execution
  */
 class Agent {
-  constructor() {
+  constructor(options = {}) {
     this.config = null;
     this.apiClient = null;
     this.logger = null;
+    this.options = options; // { manual: boolean }
   }
 
   /**
@@ -60,11 +62,30 @@ class Agent {
 
       this.logger.info(`Found ${configs.length} backup configuration(s)`);
 
-      // Execute each backup
+      // Filter configs based on schedule and manual mode
+      const dueConfigs = filterDueConfigs(configs, { forceManual: this.options.manual });
+
+      if (dueConfigs.length === 0) {
+        const mode = this.options.manual ? 'manual' : 'scheduled';
+        this.logger.info(`No ${mode} backups are due to run at this time`);
+
+        // Show why each config was skipped
+        configs.forEach((config) => {
+          const check = shouldRunBackup(config, { forceManual: this.options.manual });
+          this.logger.debug(`Skipped "${config.name}": ${check.reason}`);
+        });
+
+        return;
+      }
+
+      this.logger.info(`${dueConfigs.length} backup(s) are due to run`);
+
+      // Execute each due backup
       const executor = new BackupExecutor(this.config, this.apiClient, this.logger);
       const results = [];
 
-      for (const backupConfig of configs) {
+      for (const backupConfig of dueConfigs) {
+        this.logger.info(`Running backup: ${backupConfig.name} - ${backupConfig._runReason}`);
         const result = await executor.executeBackup(backupConfig);
         results.push({ config: backupConfig.name, ...result });
       }
@@ -97,7 +118,17 @@ class Agent {
  * Main entry point
  */
 async function main() {
-  const agent = new Agent();
+  // Parse command-line arguments
+  const args = process.argv.slice(2);
+  const isManual = args.includes('--manual') || args.includes('-m');
+
+  if (isManual) {
+    console.log('Running in MANUAL mode (one-off backups only)\n');
+  } else {
+    console.log('Running in SCHEDULED mode (cron-based backups)\n');
+  }
+
+  const agent = new Agent({ manual: isManual });
 
   const initialized = await agent.initialize();
   if (!initialized) {

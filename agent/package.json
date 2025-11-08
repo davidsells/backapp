@@ -6,13 +6,15 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "backup": "node src/index.js"
+    "backup": "node src/index.js",
+    "manual": "node src/index.js --manual"
   },
   "keywords": ["backup", "s3", "agent"],
   "author": "BackApp",
   "license": "MIT",
   "dependencies": {
     "archiver": "^7.0.1",
-    "axios": "^1.7.2"
+    "axios": "^1.7.2",
+    "cron-parser": "^4.9.0"
   }
 }

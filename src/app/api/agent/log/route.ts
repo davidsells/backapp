@@ -39,10 +39,9 @@ export async function POST(request: NextRequest) {
     const agentService = getAgentManagementService();
     await agentService.createLog(agent.id, level, message, metadata);
 
-    // If error level, consider updating agent status
-    if (level === 'error') {
-      await agentService.updateAgent(agent.id, agent.userId, { status: 'error' });
-    }
+    // Note: Agent status is managed by heartbeat (online) and auto-offline detection (offline)
+    // Error logs do not automatically set agent to 'error' status - they're just logged
+    // The 'error' status is reserved for critical agent failures and is set manually
 
     return NextResponse.json({
       success: true,
