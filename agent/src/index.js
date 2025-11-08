@@ -55,6 +55,9 @@ class Agent {
         this.logger.info('Agent will continue without real-time updates');
       });
 
+      // Update logger with WebSocket client for log streaming
+      this.logger.wsClient = this.wsClient;
+
       return true;
     } catch (error) {
       console.error(`Initialization failed: ${error.message}`);

@@ -2,8 +2,9 @@
  * Logger that outputs locally and optionally sends to server
  */
 export class Logger {
-  constructor(apiClient = null, logLevel = 'info') {
+  constructor(apiClient = null, logLevel = 'info', wsClient = null) {
     this.apiClient = apiClient;
+    this.wsClient = wsClient;
     this.logLevel = logLevel;
     this.levels = { debug: 0, info: 1, warn: 2, error: 3 };
   }
@@ -24,12 +25,27 @@ export class Logger {
   }
 
   /**
+   * Send log to WebSocket if connected
+   */
+  sendToWebSocket(level, message, metadata = {}) {
+    if (this.wsClient?.isReady()) {
+      this.wsClient.send('agent_log', {
+        level,
+        message,
+        metadata,
+        timestamp: Date.now(),
+      });
+    }
+  }
+
+  /**
    * Log debug message
    */
   debug(message, metadata = {}) {
     if (this.shouldLog('debug')) {
       console.log(this.format('debug', message));
     }
+    this.sendToWebSocket('debug', message, metadata);
   }
 
   /**
@@ -39,6 +55,8 @@ export class Logger {
     if (this.shouldLog('info')) {
       console.log(this.format('info', message));
     }
+
+    this.sendToWebSocket('info', message, metadata);
 
     // Send to server
     if (this.apiClient) {
@@ -56,6 +74,8 @@ export class Logger {
       console.warn(this.format('warn', message));
     }
 
+    this.sendToWebSocket('warn', message, metadata);
+
     // Send to server
     if (this.apiClient) {
       this.apiClient.sendLog('warn', message, metadata).catch(() => {
@@ -71,6 +91,8 @@ export class Logger {
     if (this.shouldLog('error')) {
       console.error(this.format('error', message));
     }
+
+    this.sendToWebSocket('error', message, metadata);
 
     // Send to server
     if (this.apiClient) {

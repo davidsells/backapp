@@ -8,6 +8,7 @@ export type WebSocketMessageType =
   | 'alert_created'
   | 'agent_connected'
   | 'agent_disconnected'
+  | 'agent_log'
   | 'ping'
   | 'pong';
 
