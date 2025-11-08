@@ -8,7 +8,7 @@ import { prisma } from '@/lib/db/prisma';
  * Returns current status, progress, and timing information
  */
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { logId: string } }
 ) {
   try {

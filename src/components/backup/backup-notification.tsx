@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 
 interface BackupStatus {
@@ -28,40 +28,8 @@ const STORAGE_KEY = 'backapp_pending_backups';
 export function BackupNotifications() {
   const [pendingBackups, setPendingBackups] = useState<Map<string, BackupStatus>>(new Map());
 
-  // Load pending backups from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const pending: PendingBackup[] = JSON.parse(stored);
-        // Start polling for each
-        pending.forEach((p) => {
-          pollBackupStatus(p.logId);
-        });
-      } catch (e) {
-        localStorage.removeItem(STORAGE_KEY);
-      }
-    }
-  }, []);
-
-  // Save to localStorage whenever pendingBackups changes
-  useEffect(() => {
-    const pending: PendingBackup[] = Array.from(pendingBackups.values())
-      .filter((b) => ['requested', 'running'].includes(b.status))
-      .map((b) => ({
-        logId: b.id,
-        configName: b.configName,
-        requestedAt: b.startTime,
-      }));
-
-    if (pending.length > 0) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(pending));
-    } else {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  }, [pendingBackups]);
-
-  const pollBackupStatus = async (logId: string) => {
+  // Define pollBackupStatus with useCallback
+  const pollBackupStatus = useCallback(async (logId: string) => {
     try {
       const res = await fetch(`/api/backups/status/${logId}`);
       if (!res.ok) {
@@ -90,10 +58,10 @@ export function BackupNotifications() {
     } catch (error) {
       console.error('Failed to poll backup status:', error);
     }
-  };
+  }, []);
 
   // Public method to add a new backup to track
-  const trackBackup = (logId: string, configName: string) => {
+  const trackBackup = useCallback((logId: string, configName: string) => {
     setPendingBackups((prev) => {
       const next = new Map(prev);
       next.set(logId, {
@@ -111,7 +79,40 @@ export function BackupNotifications() {
 
     // Start polling
     pollBackupStatus(logId);
-  };
+  }, [pollBackupStatus]);
+
+  // Load pending backups from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      try {
+        const pending: PendingBackup[] = JSON.parse(stored);
+        // Start polling for each
+        pending.forEach((p) => {
+          pollBackupStatus(p.logId);
+        });
+      } catch (e) {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    }
+  }, [pollBackupStatus]);
+
+  // Save to localStorage whenever pendingBackups changes
+  useEffect(() => {
+    const pending: PendingBackup[] = Array.from(pendingBackups.values())
+      .filter((b) => ['requested', 'running'].includes(b.status))
+      .map((b) => ({
+        logId: b.id,
+        configName: b.configName,
+        requestedAt: b.startTime,
+      }));
+
+    if (pending.length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(pending));
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  }, [pendingBackups]);
 
   // Expose trackBackup method globally
   useEffect(() => {
@@ -119,7 +120,7 @@ export function BackupNotifications() {
     return () => {
       delete (window as any).trackBackupRequest;
     };
-  }, []);
+  }, [trackBackup]);
 
   const dismissBackup = (logId: string) => {
     setPendingBackups((prev) => {
