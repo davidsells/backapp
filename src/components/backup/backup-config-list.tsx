@@ -217,7 +217,7 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
               {config.requestedAt && !isPendingRequest(config) && (
                 <div className="bg-red-50 border border-red-200 text-red-800 px-3 py-2 rounded text-sm">
                   ⏰ Backup request timed out (requested {getTimeSince(config.requestedAt)}).
-                  Agent may not be running. Try clicking "Run Now" again.
+                  Agent may not be running. Try clicking &quot;Run Now&quot; again.
                 </div>
               )}
 
