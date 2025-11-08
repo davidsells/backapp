@@ -9,10 +9,11 @@ import { retryWithBackoff, classifyError } from './retry-util.js';
  * Handles backup execution for a configuration
  */
 export class BackupExecutor {
-  constructor(config, apiClient, logger) {
+  constructor(config, apiClient, logger, wsClient = null) {
     this.config = config;
     this.apiClient = apiClient;
     this.logger = logger;
+    this.wsClient = wsClient;
     // Retry configuration
     this.retryConfig = {
       maxAttempts: 3,
@@ -28,6 +29,11 @@ export class BackupExecutor {
   async executeBackup(backupConfig) {
     const startTime = Date.now();
     this.logger.info(`Starting backup: ${backupConfig.name}`, { configId: backupConfig.id });
+
+    // Notify via WebSocket
+    if (this.wsClient?.isReady()) {
+      this.wsClient.notifyBackupStarted(backupConfig.id, backupConfig.name);
+    }
 
     let logId = null;
     let archivePath = null;
@@ -97,6 +103,14 @@ export class BackupExecutor {
         duration,
       });
 
+      // Notify success via WebSocket
+      if (this.wsClient?.isReady()) {
+        this.wsClient.notifyBackupCompleted(backupConfig.id, backupConfig.name, {
+          size: archiveSize,
+          duration: parseFloat(duration),
+        });
+      }
+
       return { success: true, size: archiveSize, duration };
     } catch (error) {
       // Classify error for better messaging
@@ -108,6 +122,11 @@ export class BackupExecutor {
         retriable: classification.retriable,
         originalError: error.message,
       });
+
+      // Notify failure via WebSocket
+      if (this.wsClient?.isReady()) {
+        this.wsClient.notifyBackupFailed(backupConfig.id, backupConfig.name, classification.userMessage);
+      }
 
       // Report failure to server if we have a logId
       if (logId) {

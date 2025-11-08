@@ -4,6 +4,7 @@ import { loadConfig } from './config.js';
 import { ApiClient } from './api-client.js';
 import { BackupExecutor } from './backup-executor.js';
 import { Logger } from './logger.js';
+import { AgentWebSocketClient } from './websocket-client.js';
 import { filterDueConfigs, shouldRunBackup } from './schedule-checker.js';
 
 /**
@@ -14,6 +15,7 @@ class Agent {
     this.config = null;
     this.apiClient = null;
     this.logger = null;
+    this.wsClient = null;
   }
 
   /**
@@ -37,6 +39,21 @@ class Agent {
       this.logger.info('Connecting to server...');
       const heartbeat = await this.apiClient.sendHeartbeat();
       this.logger.info(`Connected to server as: ${heartbeat.agent?.name || 'Unknown'}`);
+
+      // Initialize WebSocket client
+      const wsUrl = this.config.serverUrl.replace('http://', 'ws://').replace('https://', 'wss://') + '/api/ws';
+      this.wsClient = new AgentWebSocketClient(
+        wsUrl,
+        heartbeat.agent?.userId,
+        heartbeat.agent?.id,
+        this.logger
+      );
+
+      // Connect to WebSocket (non-blocking)
+      this.wsClient.connect().catch((error) => {
+        this.logger.warn(`WebSocket connection failed: ${error.message}`);
+        this.logger.info('Agent will continue without real-time updates');
+      });
 
       return true;
     } catch (error) {
@@ -82,7 +99,7 @@ class Agent {
       this.logger.info(`${dueConfigs.length} backup(s) are due to run`);
 
       // Execute each due backup
-      const executor = new BackupExecutor(this.config, this.apiClient, this.logger);
+      const executor = new BackupExecutor(this.config, this.apiClient, this.logger, this.wsClient);
       const results = [];
 
       for (const backupConfig of dueConfigs) {
@@ -111,6 +128,16 @@ class Agent {
     } catch (error) {
       this.logger.error(`Backup cycle failed: ${error.message}`);
       throw error;
+    }
+  }
+
+  /**
+   * Cleanup and disconnect
+   */
+  cleanup() {
+    if (this.wsClient) {
+      this.wsClient.disconnect();
+      this.wsClient = null;
     }
   }
 }

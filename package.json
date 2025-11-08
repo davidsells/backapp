@@ -4,9 +4,9 @@
   "private": true,
   "description": "A comprehensive backup system for managing backups to Amazon S3 or S3-compatible storage",
   "scripts": {
-    "dev": "next dev",
+    "dev": "node server.js",
     "build": "next build",
-    "start": "next start",
+    "start": "NODE_ENV=production node server.js",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "format": "prettier --write .",
@@ -57,6 +57,7 @@
     "tailwindcss": "^3.4.4",
     "tar": "^7.2.0",
     "winston": "^3.13.0",
+    "ws": "^8.18.3",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -74,6 +75,7 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@types/tar": "^6.1.13",
+    "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^7.13.1",
     "@typescript-eslint/parser": "^7.13.1",
     "eslint": "^8.57.0",

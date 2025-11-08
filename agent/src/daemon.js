@@ -94,6 +94,11 @@ class AgentDaemon {
       this.pollTimer = null;
     }
 
+    // Cleanup agent connections
+    if (this.agent) {
+      this.agent.cleanup();
+    }
+
     // Give time for current operations to complete
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
