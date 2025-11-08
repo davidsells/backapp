@@ -142,6 +142,9 @@ async function BackupsList() {
               <CardDescription>Manage your backup jobs and schedules</CardDescription>
             </div>
             <div className="flex gap-2">
+              <Link href="/backups/reports">
+                <Button variant="outline">View Reports</Button>
+              </Link>
               <Link href="/backups/logs">
                 <Button variant="outline">View All Logs</Button>
               </Link>
