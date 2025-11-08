@@ -130,30 +130,40 @@ export async function POST(request: NextRequest) {
     }
 
     // Prepare S3 destination - use env vars for agent-based backups
-    let destination = data.destination;
+    let destination: { bucket: string; region: string; prefix?: string; endpoint?: string };
+
     if (data.executionMode === 'agent') {
       // For agent-based backups, use application S3 configuration from environment
-      destination = {
-        bucket: process.env.AWS_S3_BUCKET || process.env.DEFAULT_S3_BUCKET || '',
-        region: process.env.AWS_REGION || process.env.DEFAULT_S3_REGION || 'us-east-1',
-        prefix: data.destination?.prefix || `backups/${session.user.id}/`,
-        endpoint: process.env.AWS_ENDPOINT || process.env.DEFAULT_S3_ENDPOINT,
-      };
+      const bucket = process.env.AWS_S3_BUCKET || process.env.DEFAULT_S3_BUCKET || '';
 
-      if (!destination.bucket) {
+      if (!bucket) {
         return NextResponse.json(
           { success: false, error: 'S3 bucket not configured. Please set AWS_S3_BUCKET in environment variables.' },
           { status: 500 }
         );
       }
+
+      destination = {
+        bucket,
+        region: process.env.AWS_REGION || process.env.DEFAULT_S3_REGION || 'us-east-1',
+        prefix: data.destination?.prefix || `backups/${session.user.id}/`,
+        endpoint: process.env.AWS_ENDPOINT || process.env.DEFAULT_S3_ENDPOINT,
+      };
     } else if (data.executionMode === 'server') {
       // For server-side, require destination to be provided
-      if (!destination || !destination.bucket || !destination.region) {
+      if (!data.destination || !data.destination.bucket || !data.destination.region) {
         return NextResponse.json(
           { success: false, error: 'S3 bucket and region are required for server-side backups' },
           { status: 400 }
         );
       }
+      destination = data.destination;
+    } else {
+      // This should never happen due to Zod validation, but TypeScript needs it
+      return NextResponse.json(
+        { success: false, error: 'Invalid execution mode' },
+        { status: 400 }
+      );
     }
 
     const backupService = getBackupService();
