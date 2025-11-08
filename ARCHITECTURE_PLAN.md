@@ -44,6 +44,56 @@ This document outlines the high-level architecture for a cross-platform backup s
 
 ## System Architecture
 
+### Dual Execution Mode Architecture
+
+**IMPORTANT UPDATE**: The system now supports **two execution modes** for backups:
+
+1. **Server-Side Mode** (Original): Backups execute on the server where the application runs
+2. **Agent-Based Mode** (New): Backups execute on remote client machines (MacBooks, workstations)
+
+This dual-mode architecture allows gradual migration and supports various deployment scenarios.
+
+### Agent-Based Architecture (Current Implementation)
+
+```
+┌────────────────┐
+│ Client Machine │
+│  (MacBook, PC) │
+│                │
+│  ┌──────────┐  │
+│  │  Agent   │◄─┼───── Node.js client running locally
+│  │ (Node.js)│  │      - Fetches configs from server
+│  └────┬─────┘  │      - Scans local files
+│       │        │      - Creates tar.gz archives
+│       │ API    │      - Uploads to S3 via pre-signed URLs
+└───────┼────────┘
+        │
+        ↓
+┌────────────────────┐       ┌──────────┐
+│  Server (Web App)  │       │    S3    │
+│                    │       │          │
+│  - Web UI          │       │  Backup  │
+│  - API Endpoints   │       │  Storage │
+│  - Config Storage  │◄──────┤  (files) │
+│  - Status Tracking │ read  │          │
+│  - Pre-signed URLs │       └──────────┘
+└────────────────────┘             ↑
+         ↑                         │
+         │                    Agent uploads
+         │                    directly to S3
+    ┌────────────┐
+    │ PostgreSQL │
+    │  Database  │
+    │            │
+    │ - Users    │
+    │ - Agents   │
+    │ - Configs  │
+    │ - Logs     │
+    └────────────┘
+```
+
+### Server-Side Architecture (Original/Fallback)
+
 ```
 ┌─────────────────────────────────────────────────────┐
 │              Next.js Application                     │
@@ -54,14 +104,17 @@ This document outlines the high-level architecture for a cross-platform backup s
 │  │  - Configuration Forms                     │    │
 │  │  - Monitoring Displays                     │    │
 │  │  - Report Viewers                          │    │
+│  │  - Agent Management                        │    │
 │  └────────────────────────────────────────────┘    │
 │                      │                              │
 │                      ▼                              │
 │  ┌────────────────────────────────────────────┐    │
 │  │      Backend (Server Components & APIs)    │    │
 │  │  - Authentication Layer                    │    │
+│  │  - Agent Authentication                    │    │
 │  │  - Business Logic                          │    │
 │  │  - Data Access Layer                       │    │
+│  │  - Pre-signed URL Generation               │    │
 │  └────────────────────────────────────────────┘    │
 │                      │                              │
 └──────────────────────┼──────────────────────────────┘
@@ -74,7 +127,8 @@ This document outlines the high-level architecture for a cross-platform backup s
 │   Database    │            │   Storage       │
 │               │            │                 │
 │ - Users       │            │ - Backup Files  │
-│ - Configs     │            │ - Archives      │
+│ - Agents      │            │ - Archives      │
+│ - Configs     │            │                 │
 │ - Logs        │            │                 │
 └───────────────┘            └─────────────────┘
         ▲                             ▲
@@ -84,6 +138,7 @@ This document outlines the high-level architecture for a cross-platform backup s
               ┌───────────────┐
               │ Backup Agent  │
               │  (Scheduler)  │
+              │ Server-side   │
               └───────────────┘
 ```
 
@@ -337,6 +392,112 @@ interface MonitoringService {
 
 ---
 
+### 5. Agent Component (NEW)
+
+**Responsibility**: Client-side backup execution on remote machines with secure server communication.
+
+**Sub-components**:
+- `agent-client`: Node.js client application
+- `backup-executor`: Local backup execution logic
+- `api-client`: Server communication
+- `agent-auth`: API key-based authentication
+- `s3-presigned-url-service`: Pre-signed URL generation (server-side)
+- `agent-logger`: Local and remote logging
+
+**Key Features**:
+- API key authentication (no AWS credentials on client)
+- Secure pre-signed URL-based S3 uploads
+- Auto-offline detection (5-minute heartbeat threshold)
+- Local file scanning and tar.gz archiving
+- Remote configuration management
+- Status reporting to server
+- Multi-platform support (macOS, Linux, Windows)
+
+**Interfaces**:
+```typescript
+interface Agent {
+  id: string;
+  name: string;
+  apiKey: string;              // Shown once during registration
+  apiKeyHash: string;          // bcrypt hash stored in DB
+  lastSeen: Date | null;
+  status: 'online' | 'offline' | 'error';
+  platform?: string;           // darwin, linux, win32
+  version?: string;            // agent version
+  userId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface AgentLog {
+  id: string;
+  agentId: string;
+  level: 'info' | 'warning' | 'error';
+  message: string;
+  metadata?: Record<string, any>;
+  timestamp: Date;
+}
+
+interface BackupConfig {
+  // ... existing fields ...
+  executionMode: 'agent' | 'server';
+  agentId?: string | null;
+}
+
+interface S3PresignedUrl {
+  url: string;
+  method: 'PUT';
+  s3Path: string;
+  expiresAt: Date;
+}
+
+interface AgentService {
+  registerAgent(userId: string, name: string, platform: string): Promise<{agent: Agent, apiKey: string}>;
+  authenticateAgent(apiKey: string): Promise<Agent | null>;
+  getAgentConfigs(agentId: string): Promise<BackupConfig[]>;
+  generateUploadUrl(params: {userId: string, agentId: string, configId: string, filename: string}): Promise<S3PresignedUrl>;
+  reportBackupStatus(logId: string, status: 'completed' | 'failed', error?: string): Promise<void>;
+}
+```
+
+**API Endpoints (Agent-Specific)**:
+- `POST /api/agent/register` - Register new agent and receive API key
+- `POST /api/agent/heartbeat` - Report agent status (updates lastSeen)
+- `GET /api/agent/configs` - Fetch assigned backup configurations
+- `POST /api/agent/backup/start` - Request pre-signed S3 upload URL
+- `POST /api/agent/backup/complete` - Report backup completion
+- `POST /api/agent/log` - Send log message to server
+- `GET /api/agent/download` - Download backup for restoration
+
+**Security Model**:
+- **No AWS Credentials on Client**: Agents never receive AWS credentials
+- **Pre-signed URLs**: Time-limited (1 hour), operation-scoped (PUT only)
+- **Path Isolation**: URLs scoped to exact S3 path: `users/{userId}/agents/{agentId}/configs/{configId}/{filename}`
+- **API Key Authentication**: bcrypt-hashed keys, shown only once during registration
+- **HTTPS Only**: All communication encrypted in transit
+
+**S3 Path Structure**:
+```
+backapp-bucket/
+  └── users/{userId}/
+      └── agents/{agentId}/
+          └── configs/{configId}/
+              ├── backup-2025-01-07-143022.tar.gz
+              ├── backup-2025-01-07-183045.tar.gz
+              └── backup-2025-01-08-143022.tar.gz
+```
+
+**Testing Requirements**:
+- Unit tests for agent authentication
+- Integration tests for full backup cycle (agent → server → S3)
+- Pre-signed URL generation and expiration tests
+- API key security tests
+- Auto-offline detection tests
+- Multi-agent configuration tests
+- Cross-platform compatibility tests
+
+---
+
 ## Database Schema
 
 ### Users Table
@@ -352,23 +513,59 @@ CREATE TABLE users (
 );
 ```
 
-### Backup Configs Table
+### Agents Table (NEW)
+```sql
+CREATE TABLE agents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  api_key_hash VARCHAR(255) NOT NULL,
+  last_seen TIMESTAMP,
+  status VARCHAR(50) DEFAULT 'offline',
+  platform VARCHAR(50),
+  version VARCHAR(50),
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  INDEX idx_agents_user_id (user_id),
+  INDEX idx_agents_status (status)
+);
+```
+
+### Agent Logs Table (NEW)
+```sql
+CREATE TABLE agent_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id UUID REFERENCES agents(id) ON DELETE CASCADE,
+  level VARCHAR(50) NOT NULL,
+  message TEXT NOT NULL,
+  metadata JSONB,
+  timestamp TIMESTAMP DEFAULT NOW(),
+  INDEX idx_agent_logs_agent_id (agent_id),
+  INDEX idx_agent_logs_timestamp (timestamp)
+);
+```
+
+### Backup Configs Table (UPDATED)
 ```sql
 CREATE TABLE backup_configs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL,
   enabled BOOLEAN DEFAULT true,
+  execution_mode VARCHAR(50) DEFAULT 'server',  -- NEW: 'agent' or 'server'
+  agent_id UUID REFERENCES agents(id) ON DELETE SET NULL,  -- NEW
   sources JSONB NOT NULL,
   destination JSONB NOT NULL,
-  schedule JSONB NOT NULL,
+  schedule JSONB,
   options JSONB NOT NULL,
   created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  updated_at TIMESTAMP DEFAULT NOW(),
+  INDEX idx_backup_configs_user_id (user_id),
+  INDEX idx_backup_configs_agent_id (agent_id)  -- NEW
 );
 ```
 
-### Backup Logs Table
+### Backup Logs Table (UPDATED)
 ```sql
 CREATE TABLE backup_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -377,13 +574,17 @@ CREATE TABLE backup_logs (
   start_time TIMESTAMP NOT NULL,
   end_time TIMESTAMP,
   status VARCHAR(50) NOT NULL,
+  s3_path VARCHAR(500),  -- NEW: Full S3 key where backup is stored
   files_processed INTEGER DEFAULT 0,
   files_skipped INTEGER DEFAULT 0,
   total_bytes BIGINT DEFAULT 0,
   bytes_transferred BIGINT DEFAULT 0,
   errors JSONB,
   duration INTEGER,
-  created_at TIMESTAMP DEFAULT NOW()
+  created_at TIMESTAMP DEFAULT NOW(),
+  INDEX idx_backup_logs_config_id (config_id),
+  INDEX idx_backup_logs_user_id (user_id),
+  INDEX idx_backup_logs_start_time (start_time)
 );
 ```
 
@@ -591,6 +792,20 @@ NODE_ENV=development
 - `GET /api/s3/buckets` - List available buckets
 - `POST /api/s3/test-connection` - Test S3 connection
 
+### Agent Endpoints (NEW)
+- `POST /api/agent/register` - Register new agent (returns API key once)
+- `POST /api/agent/heartbeat` - Update agent status and lastSeen
+- `GET /api/agent/configs` - Get backup configs assigned to agent
+- `POST /api/agent/backup/start` - Request pre-signed S3 upload URL
+- `POST /api/agent/backup/complete` - Report backup completion status
+- `POST /api/agent/log` - Send log message to server
+- `GET /api/agent/download` - Download backup for restoration
+
+### User-Facing Agent Management Endpoints (NEW)
+- `GET /api/agents` - List user's agents with auto-offline detection
+- `POST /api/agents` - Same as /api/agent/register (user-authenticated)
+- `DELETE /api/agents/:id` - Delete agent
+
 ## UI Pages Structure
 
 ```
@@ -601,12 +816,16 @@ NODE_ENV=development
 │   └── forgot-password/
 ├── (app)
 │   ├── dashboard/              # Main dashboard
+│   ├── agents/                 # NEW: Agent management
+│   │   ├── page.tsx           # List agents
+│   │   └── new/               # Register new agent
 │   ├── configs/
 │   │   ├── page.tsx           # List configs
-│   │   ├── new/               # Create config
+│   │   ├── new/               # Create config (includes execution mode)
 │   │   └── [id]/edit/         # Edit config
 │   ├── backups/
-│   │   ├── page.tsx           # Backup history
+│   │   ├── page.tsx           # Backup history (shows execution mode)
+│   │   ├── logs/              # NEW: Backup logs page
 │   │   └── [id]/              # Backup details
 │   ├── reports/               # Reports and analytics
 │   ├── settings/
@@ -626,6 +845,11 @@ NODE_ENV=development
 - ✅ Users can monitor backup progress in real-time
 - ✅ System generates alerts on failures
 - ✅ Users can view reports and analytics
+- ✅ **NEW**: Users can register and manage remote backup agents
+- ✅ **NEW**: Agents can authenticate securely with API keys
+- ✅ **NEW**: Agents upload directly to S3 via pre-signed URLs
+- ✅ **NEW**: System supports both agent-based and server-side execution modes
+- ✅ **NEW**: Auto-offline detection for agents (5-minute threshold)
 
 ### Non-Functional Requirements
 - ✅ System handles files up to 5TB per backup

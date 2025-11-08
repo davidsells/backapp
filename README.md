@@ -8,6 +8,10 @@ This application provides an intuitive interface to configure, schedule, monitor
 
 ## Key Features
 
+- **Dual Execution Modes**: Choose between agent-based (remote client) or server-side backup execution
+- **Agent-Based Backups**: Run backups directly from your MacBook, workstation, or server
+- **Secure Agent Authentication**: API key-based authentication with no AWS credentials on client
+- **Direct S3 Uploads**: Agents upload directly to S3 via time-limited pre-signed URLs
 - **Multi-platform Support**: Ubuntu, Linux, and macOS compatibility
 - **Flexible Configuration**: Configure multiple backup jobs with custom schedules
 - **S3 Integration**: Native support for Amazon S3 and S3-compatible storage
@@ -17,6 +21,7 @@ This application provides an intuitive interface to configure, schedule, monitor
 - **Compression & Encryption**: Built-in compression and encryption options
 - **Reporting & Analytics**: Comprehensive backup reports and usage statistics
 - **Alert System**: Get notified of backup failures or issues
+- **Auto-Offline Detection**: Agents automatically marked offline after 5 minutes of inactivity
 - **User Management**: Secure authentication with role-based access control
 
 ## Technology Stack
@@ -31,14 +36,33 @@ This application provides an intuitive interface to configure, schedule, monitor
 
 ## Project Status
 
-This project is currently in the **planning phase**. The architecture and components have been designed, and implementation is ready to begin.
+This project is **actively under development**. The core infrastructure and agent-based backup system have been implemented. Current phase: implementing agent functionality and testing end-to-end backup workflows.
+
+**Implemented**:
+- ✅ Authentication and user management
+- ✅ Agent registration and management
+- ✅ Dual execution mode architecture (agent-based + server-side)
+- ✅ Backup configuration with execution mode selection
+- ✅ Pre-signed URL generation for secure S3 uploads
+- ✅ Agent client (Node.js) for remote backup execution
+- ✅ Auto-offline detection for agents
+- ✅ Backup logging and status tracking
+
+**In Progress**:
+- 🔄 End-to-end testing of agent-based backups
+- 🔄 Agent scheduling and automation
+- 🔄 Backup restoration functionality
+- 🔄 Comprehensive documentation
 
 ## Documentation
 
 - [Architecture Plan](./ARCHITECTURE_PLAN.md) - Comprehensive system architecture and component design
+- [Agent Architecture](./docs/agent-architecture.md) - Detailed agent-based backup system design
+- [Phase 3: Backup System](./docs/phase3-backup-system.md) - Backup system implementation guide
 - [Testing Strategy](./TESTING_STRATEGY.md) - Detailed testing approach for all components
 - [Project Structure](./PROJECT_STRUCTURE.md) - Directory layout and setup instructions
 - [Deployment Guide](./DEPLOYMENT.md) - Docker Compose and production deployment instructions
+- [Agent README](./agent/README.md) - Agent client setup and usage guide
 
 ## Quick Start
 
