@@ -3,6 +3,7 @@ import path from 'path';
 import archiver from 'archiver';
 import { ApiClient } from './api-client.js';
 import { Logger } from './logger.js';
+import { retryWithBackoff, classifyError } from './retry-util.js';
 
 /**
  * Handles backup execution for a configuration
@@ -12,6 +13,12 @@ export class BackupExecutor {
     this.config = config;
     this.apiClient = apiClient;
     this.logger = logger;
+    // Retry configuration
+    this.retryConfig = {
+      maxAttempts: 3,
+      baseDelay: 2000, // 2 seconds
+      maxDelay: 30000, // 30 seconds
+    };
   }
 
   /**
@@ -26,7 +33,7 @@ export class BackupExecutor {
     let archivePath = null;
 
     try {
-      // Validate source paths exist
+      // Validate source paths exist (no retry - this is a configuration error)
       this.validateSources(backupConfig.sources);
 
       // Generate filename with timestamp
@@ -36,26 +43,52 @@ export class BackupExecutor {
 
       this.logger.info(`Creating archive: ${filename}`);
 
-      // Create tar.gz archive
+      // Create tar.gz archive (no retry - local operation)
       const archiveSize = await this.createArchive(backupConfig.sources, archivePath);
       this.logger.info(`Archive created: ${archiveSize} bytes`);
 
-      // Request pre-signed URL
+      // Request pre-signed URL (with retry)
       this.logger.info('Requesting upload URL from server');
-      const startResponse = await this.apiClient.startBackup(backupConfig.id, filename);
+      const startResponse = await retryWithBackoff(
+        () => this.apiClient.startBackup(backupConfig.id, filename),
+        {
+          ...this.retryConfig,
+          onRetry: (attempt, error, delay) => {
+            this.logger.warn(`Retry ${attempt}/${this.retryConfig.maxAttempts} for startBackup after ${(delay/1000).toFixed(1)}s: ${error.message}`);
+          },
+        }
+      );
+
       logId = startResponse.logId;
       const { url: uploadUrl, s3Path } = startResponse.upload;
 
       this.logger.info(`Uploading to S3: ${s3Path}`);
 
-      // Upload to S3
+      // Upload to S3 (with retry)
       const fileData = fs.readFileSync(archivePath);
-      await this.apiClient.uploadToS3(uploadUrl, fileData, 'application/gzip');
+      await retryWithBackoff(
+        () => this.apiClient.uploadToS3(uploadUrl, fileData, 'application/gzip'),
+        {
+          ...this.retryConfig,
+          maxAttempts: 5, // More retries for S3 uploads
+          onRetry: (attempt, error, delay) => {
+            this.logger.warn(`Retry ${attempt}/5 for S3 upload after ${(delay/1000).toFixed(1)}s: ${error.message}`);
+          },
+        }
+      );
 
       this.logger.info('Upload complete');
 
-      // Mark as complete
-      await this.apiClient.completeBackup(logId, true, null, archiveSize);
+      // Mark as complete (with retry)
+      await retryWithBackoff(
+        () => this.apiClient.completeBackup(logId, true, null, archiveSize),
+        {
+          ...this.retryConfig,
+          onRetry: (attempt, error, delay) => {
+            this.logger.warn(`Retry ${attempt}/${this.retryConfig.maxAttempts} for completeBackup after ${(delay/1000).toFixed(1)}s: ${error.message}`);
+          },
+        }
+      );
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
       this.logger.info(`Backup completed successfully in ${duration}s`, {
@@ -66,18 +99,42 @@ export class BackupExecutor {
 
       return { success: true, size: archiveSize, duration };
     } catch (error) {
-      this.logger.error(`Backup failed: ${error.message}`, { configId: backupConfig.id });
+      // Classify error for better messaging
+      const classification = classifyError(error);
+
+      this.logger.error(`Backup failed (${classification.category}): ${classification.userMessage}`, {
+        configId: backupConfig.id,
+        errorCategory: classification.category,
+        retriable: classification.retriable,
+        originalError: error.message,
+      });
 
       // Report failure to server if we have a logId
       if (logId) {
         try {
-          await this.apiClient.completeBackup(logId, false, error.message);
+          // Try to report failure (with retry)
+          await retryWithBackoff(
+            () => this.apiClient.completeBackup(logId, false, classification.userMessage),
+            {
+              maxAttempts: 2, // Only retry once for failure reporting
+              baseDelay: 1000,
+              onRetry: (attempt, err, delay) => {
+                this.logger.warn(`Retry ${attempt}/2 for failure reporting after ${(delay/1000).toFixed(1)}s`);
+              },
+            }
+          );
         } catch (completeError) {
-          this.logger.error(`Failed to report backup failure: ${completeError.message}`);
+          this.logger.error(`Failed to report backup failure to server: ${completeError.message}`);
+          // Don't throw - we've already failed the backup
         }
       }
 
-      return { success: false, error: error.message };
+      return {
+        success: false,
+        error: classification.userMessage,
+        errorCategory: classification.category,
+        retriable: classification.retriable,
+      };
     } finally {
       // Clean up archive file
       if (archivePath && fs.existsSync(archivePath)) {
@@ -97,13 +154,17 @@ export class BackupExecutor {
   validateSources(sources) {
     for (const source of sources) {
       if (!fs.existsSync(source.path)) {
-        throw new Error(`Source path does not exist: ${source.path}`);
+        const error = new Error(`Source path does not exist: ${source.path}`);
+        error.code = 'ENOENT';
+        throw error;
       }
 
       try {
         fs.accessSync(source.path, fs.constants.R_OK);
       } catch (error) {
-        throw new Error(`Cannot access source path: ${source.path}`);
+        error.message = `Cannot access source path: ${source.path}`;
+        error.code = 'EACCES';
+        throw error;
       }
     }
   }
@@ -144,6 +205,13 @@ export class BackupExecutor {
       // Add each source to the archive
       for (const source of sources) {
         const sourcePath = source.path;
+
+        // Re-check if path still exists (it may have been deleted since validation)
+        if (!fs.existsSync(sourcePath)) {
+          this.logger.warn(`Skipping missing path: ${sourcePath}`);
+          continue;
+        }
+
         const stats = fs.statSync(sourcePath);
 
         if (stats.isDirectory()) {
