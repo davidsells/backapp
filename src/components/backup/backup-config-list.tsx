@@ -88,6 +88,34 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
     return cron;
   };
 
+  const getTimeSince = (date: Date | null | undefined) => {
+    if (!date) return null;
+    const now = new Date();
+    const diffMs = now.getTime() - new Date(date).getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 1) return 'just now';
+    if (diffMins === 1) return '1 minute ago';
+    if (diffMins < 60) return `${diffMins} minutes ago`;
+
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours === 1) return '1 hour ago';
+    if (diffHours < 24) return `${diffHours} hours ago`;
+
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays === 1) return '1 day ago';
+    return `${diffDays} days ago`;
+  };
+
+  const isPendingRequest = (config: BackupConfigWithAgent) => {
+    if (!config.requestedAt) return false;
+    const now = new Date();
+    const requestTime = new Date(config.requestedAt);
+    const ageMinutes = (now.getTime() - requestTime.getTime()) / 60000;
+    // Consider it timed out after 20 minutes (2x the expected 10 min window)
+    return ageMinutes < 20;
+  };
+
   if (configs.length === 0) {
     return (
       <div className="text-center py-12">
@@ -139,9 +167,14 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
                     Manual-only
                   </span>
                 )}
+                {isPendingRequest(config) && (
+                  <span className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-700 animate-pulse">
+                    ⏳ Requested {getTimeSince(config.requestedAt)}
+                  </span>
+                )}
                 {isRunning && (
                   <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700">
-                    Running...
+                    Requesting...
                   </span>
                 )}
               </div>
@@ -170,7 +203,23 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
                 )}
 
                 <span>{getScheduleDescription(config.schedule)}</span>
+
+                {/* Last run info */}
+                {config.lastRunAt && (
+                  <>
+                    <span className="mx-2">•</span>
+                    <span>Last run: {getTimeSince(config.lastRunAt)}</span>
+                  </>
+                )}
               </div>
+
+              {/* Pending request timeout warning */}
+              {config.requestedAt && !isPendingRequest(config) && (
+                <div className="bg-red-50 border border-red-200 text-red-800 px-3 py-2 rounded text-sm">
+                  ⏰ Backup request timed out (requested {getTimeSince(config.requestedAt)}).
+                  Agent may not be running. Try clicking "Run Now" again.
+                </div>
+              )}
 
               {/* Agent-specific warnings */}
               {config.executionMode === 'agent' && config.agent && config.agent.status !== 'online' && (

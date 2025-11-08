@@ -75,9 +75,11 @@ export class ApiClient {
     try {
       const response = await this.client.post('/api/agent/backup/complete', {
         logId,
-        success,
-        error,
-        fileSize,
+        status: success ? 'completed' : 'failed',  // Convert boolean to status string
+        filesProcessed: 0,  // TODO: Track actual file count
+        bytesTransferred: fileSize || 0,
+        duration: undefined,  // TODO: Calculate from start time
+        errors: error ? [error] : undefined,
       });
       return response.data;
     } catch (error) {
