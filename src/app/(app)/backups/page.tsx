@@ -6,6 +6,7 @@ import { getBackupService } from '@/lib/backup/backup-service';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BackupConfigList } from '@/components/backup/backup-config-list';
+import { AlertBanner } from '@/components/alerts/alert-banner';
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -57,6 +58,9 @@ async function BackupsList() {
 
   return (
     <div className="space-y-6">
+      {/* Alert Banner */}
+      <AlertBanner />
+
       {/* Stats Overview */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card>

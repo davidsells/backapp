@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAgentAuth, updateAgentLastSeen } from '@/lib/agent/agent-auth';
 import { prisma } from '@/lib/db/prisma';
+import { getAlertService } from '@/lib/alerts/alert-service';
 
 const completeBackupSchema = z.object({
   logId: z.string().uuid('Invalid log ID'),
@@ -50,6 +51,7 @@ export async function POST(request: NextRequest) {
         config: {
           select: {
             agentId: true,
+            name: true,
           },
         },
       },
@@ -93,16 +95,19 @@ export async function POST(request: NextRequest) {
       }),
     ]);
 
-    // If backup failed, create alert
+    // If backup failed, create alert using alert service
     if (status === 'failed') {
-      await prisma.alert.create({
-        data: {
-          userId: log.userId,
-          configId: log.configId,
-          type: 'error',
-          message: `Agent backup failed: ${errors && errors.length > 0 ? errors[0] : 'Unknown error'}`,
-        },
-      });
+      const alertService = getAlertService();
+      const errorMessage = errors && errors.length > 0
+        ? (typeof errors[0] === 'string' ? errors[0] : JSON.stringify(errors[0]))
+        : 'Unknown error';
+
+      await alertService.createBackupFailureAlert(
+        log.userId,
+        log.configId,
+        log.config.name,
+        errorMessage
+      );
     }
 
     return NextResponse.json({
