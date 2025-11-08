@@ -49,8 +49,11 @@ export class BackupExecutor {
 
       this.logger.info(`Creating archive: ${filename}`);
 
+      // Send initial progress
+      this.sendProgress(backupConfig, { stage: 'preparing', filesProcessed: 0, bytesProcessed: 0 });
+
       // Create tar.gz archive (no retry - local operation)
-      const archiveSize = await this.createArchive(backupConfig.sources, archivePath);
+      const archiveSize = await this.createArchive(backupConfig.sources, archivePath, backupConfig);
       this.logger.info(`Archive created: ${archiveSize} bytes`);
 
       // Request pre-signed URL (with retry)
@@ -69,6 +72,9 @@ export class BackupExecutor {
       const { url: uploadUrl, s3Path } = startResponse.upload;
 
       this.logger.info(`Uploading to S3: ${s3Path}`);
+
+      // Send upload progress
+      this.sendProgress(backupConfig, { stage: 'uploading', filesProcessed: 0, bytesProcessed: 0, totalBytes: archiveSize });
 
       // Upload to S3 (with retry)
       const fileData = fs.readFileSync(archivePath);
@@ -192,7 +198,7 @@ export class BackupExecutor {
    * Create tar.gz archive of source paths
    * @returns {Promise<number>} Size of created archive in bytes
    */
-  async createArchive(sources, outputPath) {
+  async createArchive(sources, outputPath, backupConfig = null) {
     return new Promise((resolve, reject) => {
       const output = fs.createWriteStream(outputPath);
       const archive = archiver('tar', {
@@ -201,6 +207,10 @@ export class BackupExecutor {
       });
 
       let archiveSize = 0;
+      let filesProcessed = 0;
+      let bytesProcessed = 0;
+      let lastProgressUpdate = Date.now();
+      const progressUpdateInterval = 1000; // Update every second
 
       output.on('close', () => {
         archiveSize = archive.pointer();
@@ -216,6 +226,24 @@ export class BackupExecutor {
           this.logger.warn(`File not found during archiving: ${err.message}`);
         } else {
           reject(err);
+        }
+      });
+
+      // Track progress during archiving
+      archive.on('entry', (entry) => {
+        filesProcessed++;
+        bytesProcessed += entry.stats?.size || 0;
+
+        // Send progress update (throttled)
+        const now = Date.now();
+        if (now - lastProgressUpdate >= progressUpdateInterval) {
+          this.sendProgress(backupConfig, {
+            stage: 'archiving',
+            filesProcessed,
+            bytesProcessed,
+            currentFile: entry.name,
+          });
+          lastProgressUpdate = now;
         }
       });
 
@@ -250,5 +278,16 @@ export class BackupExecutor {
 
       archive.finalize();
     });
+  }
+
+  /**
+   * Send progress update via WebSocket
+   */
+  sendProgress(backupConfig, progress) {
+    if (!backupConfig || !this.wsClient?.isReady()) {
+      return;
+    }
+
+    this.wsClient.notifyBackupProgress(backupConfig.id, backupConfig.name, progress);
   }
 }

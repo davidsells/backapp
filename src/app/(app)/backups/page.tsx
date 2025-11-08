@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BackupConfigList } from '@/components/backup/backup-config-list';
 import { AlertBanner } from '@/components/alerts/alert-banner';
+import { BackupProgressMonitor } from '@/components/backups/backup-progress-monitor';
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -60,6 +61,9 @@ async function BackupsList() {
     <div className="space-y-6">
       {/* Alert Banner */}
       <AlertBanner />
+
+      {/* Live Backup Progress */}
+      <BackupProgressMonitor userId={session.user.id} />
 
       {/* Stats Overview */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
