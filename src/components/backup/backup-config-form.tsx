@@ -76,7 +76,7 @@ export function BackupConfigForm({ initialData }: { initialData?: Partial<FormDa
   useEffect(() => {
     async function fetchAgents() {
       try {
-        const response = await fetch('/api/agent/configs');
+        const response = await fetch('/api/agents');
         if (response.ok) {
           const data = await response.json();
           setAgents(data.agents || []);
