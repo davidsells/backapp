@@ -182,43 +182,57 @@ export class BackupService {
    * Get backup statistics for user
    */
   async getStats(userId: string) {
-    const [totalConfigs, activeConfigs, totalBackups, failedBackups] = await Promise.all([
+    const [totalConfigs, activeConfigs, totalBackups, completedBackups, failedBackups] = await Promise.all([
       prisma.backupConfig.count({ where: { userId } }),
       prisma.backupConfig.count({ where: { userId, enabled: true } }),
       prisma.backupLog.count({ where: { userId } }),
+      prisma.backupLog.count({ where: { userId, status: 'completed' } }),
       prisma.backupLog.count({ where: { userId, status: 'failed' } }),
     ]);
 
-    const recentLogs = await prisma.backupLog.findMany({
-      where: { userId },
-      orderBy: { startTime: 'desc' },
-      take: 10,
+    // Get all logs for total calculations
+    const allLogs = await prisma.backupLog.findMany({
+      where: { userId, status: 'completed' },
       select: {
         bytesTransferred: true,
         filesProcessed: true,
       },
     });
 
-    const totalBytesTransferred = recentLogs.reduce(
+    const totalBytesTransferred = allLogs.reduce(
       (sum, log) => sum + Number(log.bytesTransferred),
       0
     );
 
-    const totalFilesProcessed = recentLogs.reduce(
+    const totalFilesProcessed = allLogs.reduce(
       (sum, log) => sum + log.filesProcessed,
       0
     );
+
+    // Get recent activity (last 5 backups)
+    const recentActivity = await prisma.backupLog.findMany({
+      where: { userId },
+      orderBy: { startTime: 'desc' },
+      take: 5,
+      include: {
+        config: {
+          select: { name: true },
+        },
+      },
+    });
 
     return {
       totalConfigs,
       activeConfigs,
       totalBackups,
+      completedBackups,
       failedBackups,
       successRate: totalBackups > 0
-        ? ((totalBackups - failedBackups) / totalBackups) * 100
+        ? ((completedBackups / totalBackups) * 100)
         : 0,
       totalBytesTransferred,
       totalFilesProcessed,
+      recentActivity,
     };
   }
 
