@@ -68,11 +68,26 @@ export async function POST(request: NextRequest) {
 
     // Handle based on execution mode
     if (config.executionMode === 'agent') {
-      // For agent-based: Set requestedAt timestamp
-      // Agent will pick it up on next poll
+      // For agent-based: Create BackupLog with "requested" status and set requestedAt
+      const now = new Date();
+
+      const backupLog = await prisma.backupLog.create({
+        data: {
+          configId,
+          userId: session.user.id,
+          startTime: now,
+          status: 'requested', // New status to track requests
+          filesProcessed: 0,
+          filesSkipped: 0,
+          totalBytes: BigInt(0),
+          bytesTransferred: BigInt(0),
+        },
+      });
+
+      // Set requestedAt so agent picks it up
       await prisma.backupConfig.update({
         where: { id: configId },
-        data: { requestedAt: new Date() },
+        data: { requestedAt: now },
       });
 
       return NextResponse.json({
@@ -80,6 +95,7 @@ export async function POST(request: NextRequest) {
         message: 'Backup requested. Agent will execute within 10 minutes.',
         executionMode: 'agent',
         estimatedDelay: '10 minutes',
+        logId: backupLog.id, // Return logId for UI to poll
       });
     } else {
       // For server-side: Trigger immediate execution

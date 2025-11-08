@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { signOut } from '@/lib/auth/auth';
 import { Button } from '@/components/ui/button';
+import { BackupNotifications } from '@/components/backup/backup-notification';
 
 async function SignOutButton() {
   return (
@@ -93,6 +94,7 @@ export default async function AppLayout({
         </div>
       </header>
       <main className="container mx-auto p-6">{children}</main>
+      <BackupNotifications />
     </div>
   );
 }

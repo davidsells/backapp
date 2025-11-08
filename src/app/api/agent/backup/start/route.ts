@@ -53,15 +53,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create backup log entry
-    const log = await prisma.backupLog.create({
-      data: {
+    // Look for existing "requested" log (from user clicking "Run Now")
+    // If found, update it to "running". Otherwise create new log.
+    const existingLog = await prisma.backupLog.findFirst({
+      where: {
         configId: config.id,
-        userId: config.userId,
-        startTime: new Date(),
-        status: 'running',
+        status: 'requested',
+      },
+      orderBy: {
+        startTime: 'desc',
       },
     });
+
+    let log;
+    if (existingLog) {
+      // Update existing requested log to running
+      log = await prisma.backupLog.update({
+        where: { id: existingLog.id },
+        data: { status: 'running' },
+      });
+    } else {
+      // Create new backup log entry (for scheduled backups that weren't requested)
+      log = await prisma.backupLog.create({
+        data: {
+          configId: config.id,
+          userId: config.userId,
+          startTime: new Date(),
+          status: 'running',
+        },
+      });
+    }
 
     // Generate pre-signed URL for S3 upload
     const s3Service = getS3PresignedUrlService();

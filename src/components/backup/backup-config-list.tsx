@@ -32,8 +32,13 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
       const data = await res.json();
 
       if (data.success) {
+        // Track backup request in notification system if logId is returned
+        if (data.logId && typeof window !== 'undefined' && (window as any).trackBackupRequest) {
+          (window as any).trackBackupRequest(data.logId, configName);
+        }
+
         if (executionMode === 'agent') {
-          setSuccess(`Backup "${configName}" requested. Agent will execute within 10 minutes.`);
+          setSuccess(`Backup "${configName}" requested. Tracking progress...`);
         } else {
           setSuccess(`Backup "${configName}" started successfully!`);
         }
