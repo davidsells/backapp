@@ -54,15 +54,13 @@ cp config.example.json config.json
 
 ## Usage
 
-Run a backup cycle:
+### One-Shot Mode (Manual Backup)
+
+Run a single backup cycle:
 
 ```bash
 npm start
-```
-
-Or using node directly:
-
-```bash
+# or
 node src/index.js
 ```
 
@@ -75,55 +73,73 @@ The agent will:
    - Upload to S3 using a pre-signed URL
    - Report success/failure to the server
 4. Display a summary of all backups
+5. Exit
 
-## Scheduling Backups
+### Daemon Mode (Continuous Background Service)
 
-### macOS (launchd)
+**Recommended for production use**. The daemon runs continuously in the background and polls for backups every 5 minutes.
 
-Create a plist file at `~/Library/LaunchAgents/com.backapp.agent.plist`:
+#### Test Daemon Mode
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.backapp.agent</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/usr/local/bin/node</string>
-        <string>/path/to/agent/src/index.js</string>
-    </array>
-    <key>StartInterval</key>
-    <integer>3600</integer>
-    <key>RunAtLoad</key>
-    <true/>
-</dict>
-</plist>
-```
-
-Load it:
+Run daemon in foreground to test:
 
 ```bash
-launchctl load ~/Library/LaunchAgents/com.backapp.agent.plist
+npm run daemon
+# or
+node src/daemon.js
 ```
 
-### Linux (cron)
+Press Ctrl+C to stop.
 
-Add to crontab:
+#### Install as System Service
 
+**macOS:**
 ```bash
-# Run every hour
-0 * * * * cd /path/to/agent && /usr/bin/node src/index.js >> /var/log/backapp-agent.log 2>&1
+cd services/macos
+./install.sh
 ```
 
-### Windows (Task Scheduler)
+**Linux:**
+```bash
+cd services/linux
+./install.sh
+```
 
+**Windows:**
+See `services/README.md` for Windows service installation using NSSM.
+
+#### Service Benefits
+
+- Runs automatically on system startup
+- Restarts automatically if crashes
+- Runs in background (no terminal needed)
+- Centralized logging
+- Easy start/stop/status commands
+
+See [`services/README.md`](./services/README.md) for detailed service management documentation.
+
+### Legacy Scheduling (Alternative to Daemon Mode)
+
+If you prefer scheduled tasks instead of a continuous daemon:
+
+**macOS (cron):**
+```bash
+# Run every 5 minutes
+*/5 * * * * cd /path/to/agent && /usr/local/bin/node src/index.js >> /tmp/backapp-agent.log 2>&1
+```
+
+**Linux (cron):**
+```bash
+# Run every 5 minutes
+*/5 * * * * cd /path/to/agent && /usr/bin/node src/index.js >> /var/log/backapp-agent.log 2>&1
+```
+
+**Windows (Task Scheduler):**
 1. Open Task Scheduler
 2. Create Basic Task
-3. Set trigger (e.g., daily at 2 AM)
+3. Set trigger (e.g., every 5 minutes)
 4. Action: Start a program
-   - Program: `node.exe`
+   - Program: `C:\Program Files\nodejs\node.exe`
    - Arguments: `src\index.js`
    - Start in: `C:\path\to\agent`
 

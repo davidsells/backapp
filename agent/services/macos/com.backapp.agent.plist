@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Service label (must match filename) -->
+    <key>Label</key>
+    <string>com.backapp.agent</string>
+
+    <!-- Program to run -->
+    <key>ProgramArguments</key>
+    <array>
+        <!-- Path to node - UPDATE THIS to your node path -->
+        <string>/usr/local/bin/node</string>
+        <!-- Path to daemon.js - UPDATE THIS to your installation path -->
+        <string>/Users/YOUR_USERNAME/backapp-agent/src/daemon.js</string>
+    </array>
+
+    <!-- Working directory -->
+    <key>WorkingDirectory</key>
+    <string>/Users/YOUR_USERNAME/backapp-agent</string>
+
+    <!-- Run at load (start on boot) -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Keep alive (restart if crashes) -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <!-- Standard output log -->
+    <key>StandardOutPath</key>
+    <string>/Users/YOUR_USERNAME/Library/Logs/backapp-agent.log</string>
+
+    <!-- Standard error log -->
+    <key>StandardErrorPath</key>
+    <string>/Users/YOUR_USERNAME/Library/Logs/backapp-agent-error.log</string>
+
+    <!-- Environment variables -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>NODE_ENV</key>
+        <string>production</string>
+    </dict>
+
+    <!-- Throttle interval (seconds to wait before restart) -->
+    <key>ThrottleInterval</key>
+    <integer>60</integer>
+
+    <!-- Process type -->
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

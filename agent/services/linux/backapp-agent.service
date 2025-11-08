@@ -1,0 +1,38 @@
+[Unit]
+Description=BackApp Agent - Automated Backup Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=YOUR_USERNAME
+Group=YOUR_USERNAME
+
+# Working directory
+WorkingDirectory=/home/YOUR_USERNAME/backapp-agent
+
+# Command to run
+ExecStart=/usr/bin/node /home/YOUR_USERNAME/backapp-agent/src/daemon.js
+
+# Restart policy
+Restart=on-failure
+RestartSec=60
+
+# Environment
+Environment="NODE_ENV=production"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=backapp-agent
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Resource limits
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

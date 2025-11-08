@@ -94,16 +94,17 @@ This document tracks our position in the original architecture plan and any dive
 - ✅ BackupLog lifecycle (requested → running → completed/failed)
 - ✅ Persistent UI notifications with status tracking
 
-### 🔄 Agent Phase 2: Enhancement (IN PROGRESS - 40% COMPLETE)
-- ✅ Scheduled execution (cron-like on client via crontab) - **BASIC VERSION COMPLETE**
-- ⬜ Background service (daemon/launchd on Mac) - **TODO**
+### 🔄 Agent Phase 2: Enhancement (IN PROGRESS - ACTIVELY WORKING)
+- 🔄 Background service (daemon/launchd on Mac) - **IN PROGRESS**
 - ⬜ WebSocket for real-time communication - **TODO**
 - ⬜ Progress streaming during backup - **TODO**
 - ⬜ Automatic retries on failure - **TODO**
-- ⬜ Better error handling and recovery - **PARTIAL**
+- ⬜ Better error handling and recovery - **TODO**
 - ⬜ Agent log streaming to UI - **TODO**
+- ✅ Scheduled execution (cron-like on client via crontab) - **BASIC VERSION COMPLETE**
 
-**CURRENT POSITION**: We have basic cron scheduling working, but need proper daemon/service setup
+**CURRENT TASK**: Converting agent to background service/daemon for production use
+**Goal**: Make agent production-ready with daemon support, WebSocket updates, and better error handling
 
 ### ⬜ Agent Phase 3: Advanced (NOT STARTED)
 - ⬜ Agent auto-update mechanism
