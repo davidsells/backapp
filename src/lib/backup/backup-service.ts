@@ -97,7 +97,17 @@ export class BackupService {
   ): Promise<BackupConfig> {
     // Validate if sources are being updated
     if (input.sources) {
-      const validation = await this.validateSources(input.sources);
+      // Determine execution mode (use new one if being updated, otherwise get current)
+      let executionMode: 'agent' | 'server' = input.executionMode || 'server';
+      if (!input.executionMode) {
+        const currentConfig = await prisma.backupConfig.findFirst({
+          where: { id: configId, userId },
+          select: { executionMode: true },
+        });
+        executionMode = (currentConfig?.executionMode as 'agent' | 'server') || 'server';
+      }
+
+      const validation = await this.validateSources(input.sources, executionMode);
       if (!validation.valid) {
         throw new Error(`Invalid sources: ${validation.errors?.join(', ')}`);
       }
@@ -223,8 +233,8 @@ export class BackupService {
       errors.push('Configuration name is required');
     }
 
-    // Validate sources
-    const sourceValidation = await this.validateSources(input.sources);
+    // Validate sources (skip file system checks for agent-based backups)
+    const sourceValidation = await this.validateSources(input.sources, input.executionMode);
     if (!sourceValidation.valid) {
       errors.push(...(sourceValidation.errors || []));
     }
@@ -260,8 +270,12 @@ export class BackupService {
 
   /**
    * Validate backup sources
+   * For agent-based backups, skip file system validation (agent will validate on its machine)
    */
-  private async validateSources(sources: BackupSource[]): Promise<ValidationResult> {
+  private async validateSources(
+    sources: BackupSource[],
+    executionMode: 'agent' | 'server' = 'server'
+  ): Promise<ValidationResult> {
     const errors: string[] = [];
 
     if (!sources || sources.length === 0) {
@@ -275,9 +289,13 @@ export class BackupService {
         continue;
       }
 
-      const validation = await this.fileProcessor.validateSource(source);
-      if (!validation.valid) {
-        errors.push(`Source ${index + 1}: ${validation.error}`);
+      // Skip file system validation for agent-based backups
+      // The agent will validate paths on its own machine
+      if (executionMode === 'server') {
+        const validation = await this.fileProcessor.validateSource(source);
+        if (!validation.valid) {
+          errors.push(`Source ${index + 1}: ${validation.error}`);
+        }
       }
     }
 
