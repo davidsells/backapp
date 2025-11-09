@@ -39,12 +39,18 @@ export class WebSocketService {
 
   /**
    * Add a new client connection
+   * @param ws WebSocket connection
+   * @param isAgent Whether this is an agent connection
+   * @param validatedUserId User ID validated from session (for browser clients)
    */
-  addClient(ws: WebSocket, isAgent = false): void {
+  addClient(ws: WebSocket, isAgent = false, validatedUserId: string | null = null): void {
+    // Browser clients come with pre-validated userId from session
+    // Agents need to authenticate after connection
     const client: WebSocketClient = {
       ws,
       isAgent,
-      authenticated: false,
+      authenticated: !isAgent && !!validatedUserId, // Browser clients auto-authenticated if userId provided
+      userId: validatedUserId || undefined,
     };
 
     this.clients.set(ws, client);
@@ -64,7 +70,7 @@ export class WebSocketService {
       this.removeClient(ws);
     });
 
-    console.log(`[WebSocket] Client connected (agent: ${isAgent}). Total: ${this.clients.size}`);
+    console.log(`[WebSocket] Client connected (agent: ${isAgent}, userId: ${validatedUserId || 'pending'}). Total: ${this.clients.size}`);
   }
 
   /**
@@ -135,38 +141,59 @@ export class WebSocketService {
   /**
    * Authenticate a client
    *
-   * NOTE: This is a simplified authentication that trusts the userId from the client.
-   * TODO: Implement proper JWT token validation for production use.
-   *
-   * Security considerations:
-   * - Browser clients should send their session cookie when connecting
-   * - The WebSocket upgrade request should validate the session cookie
-   * - For now, we accept the userId but log for audit purposes
+   * SECURITY: Browser clients are pre-authenticated via session validation during WebSocket upgrade.
+   * Only agents can authenticate after connection by providing userId and agentId.
    */
-  private authenticateClient(ws: WebSocket, data: { userId: string; agentId?: string }): void {
+  private authenticateClient(ws: WebSocket, data: { userId?: string; agentId?: string }): void {
     const client = this.clients.get(ws);
     if (!client) return;
 
-    // Log authentication attempt for audit
-    console.log(`[WebSocket] Authentication attempt: userId=${data.userId}, isAgent=${client.isAgent}`);
+    // Browser clients are already authenticated with validated userId from session
+    if (!client.isAgent) {
+      // Browser clients cannot override their userId
+      if (client.authenticated && client.userId) {
+        this.sendToClient(ws, {
+          type: 'authenticated' as any,
+          data: { success: true, userId: client.userId },
+          timestamp: Date.now(),
+        });
+        console.log(`[WebSocket] Browser client already authenticated: ${client.userId}`);
+        return;
+      } else {
+        // Browser client without validated session (should not happen due to server.js validation)
+        this.sendToClient(ws, {
+          type: 'error' as any,
+          data: { message: 'Browser clients must have valid session' },
+          timestamp: Date.now(),
+        });
+        ws.close();
+        return;
+      }
+    }
 
-    // SECURITY WARNING: Not validating userId against session in this version
-    // The WebSocket server should validate session cookies during upgrade
-    // See server.js for proper session validation
+    // Agent authentication - requires userId and agentId
+    if (!data.userId || !data.agentId) {
+      this.sendToClient(ws, {
+        type: 'error' as any,
+        data: { message: 'Agents must provide userId and agentId' },
+        timestamp: Date.now(),
+      });
+      ws.close();
+      return;
+    }
 
     client.authenticated = true;
     client.userId = data.userId;
+    client.agentId = data.agentId;
 
-    if (client.isAgent) {
-      client.agentId = data.agentId;
+    // Notify user that agent connected
+    this.broadcastToUser(data.userId, {
+      type: 'agent_connected',
+      data: { agentId: data.agentId },
+      timestamp: Date.now(),
+    });
 
-      // Notify user that agent connected
-      this.broadcastToUser(data.userId, {
-        type: 'agent_connected',
-        data: { agentId: data.agentId },
-        timestamp: Date.now(),
-      });
-    }
+    console.log(`[WebSocket] Agent authenticated: userId=${data.userId}, agentId=${data.agentId}`);
 
     this.sendToClient(ws, {
       type: 'authenticated' as any,

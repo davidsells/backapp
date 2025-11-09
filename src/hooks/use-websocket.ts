@@ -48,10 +48,11 @@ export function useWebSocket({ userId, onMessage, reconnectInterval = 3000, maxR
       setStatus('connected');
       reconnectAttemptsRef.current = 0;
 
-      // Authenticate
+      // Browser clients are pre-authenticated via session validation during WebSocket upgrade
+      // Send authenticate message to confirm (server will verify session-based userId)
       ws.send(JSON.stringify({
         type: 'authenticate',
-        data: { userId },
+        data: {}, // No userId needed - server validates from session
       }));
     };
 
