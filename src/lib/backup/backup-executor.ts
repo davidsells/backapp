@@ -208,7 +208,11 @@ export class BackupExecutor {
     let finalPath = archivePath;
     if (config.options.encryption) {
       const encryptedPath = `${archivePath}.enc`;
-      const encryptionKey = process.env.BACKUP_ENCRYPTION_KEY || 'default-key-change-me';
+      const encryptionKey = process.env.BACKUP_ENCRYPTION_KEY;
+
+      if (!encryptionKey) {
+        throw new Error('Encryption enabled but BACKUP_ENCRYPTION_KEY environment variable is not set');
+      }
 
       await this.fileProcessor.encryptFile(archivePath, encryptedPath, encryptionKey);
       finalPath = encryptedPath;

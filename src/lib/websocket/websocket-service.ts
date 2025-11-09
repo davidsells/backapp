@@ -134,13 +134,25 @@ export class WebSocketService {
 
   /**
    * Authenticate a client
+   *
+   * NOTE: This is a simplified authentication that trusts the userId from the client.
+   * TODO: Implement proper JWT token validation for production use.
+   *
+   * Security considerations:
+   * - Browser clients should send their session cookie when connecting
+   * - The WebSocket upgrade request should validate the session cookie
+   * - For now, we accept the userId but log for audit purposes
    */
-  private authenticateClient(ws: WebSocket, data: { userId: string; agentId?: string; token?: string }): void {
+  private authenticateClient(ws: WebSocket, data: { userId: string; agentId?: string }): void {
     const client = this.clients.get(ws);
     if (!client) return;
 
-    // TODO: Validate token with auth system
-    // For now, we'll accept the userId and agentId
+    // Log authentication attempt for audit
+    console.log(`[WebSocket] Authentication attempt: userId=${data.userId}, isAgent=${client.isAgent}`);
+
+    // SECURITY WARNING: Not validating userId against session in this version
+    // The WebSocket server should validate session cookies during upgrade
+    // See server.js for proper session validation
 
     client.authenticated = true;
     client.userId = data.userId;

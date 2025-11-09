@@ -40,8 +40,17 @@ class AuthService {
     }
 
     // Validate password strength
-    if (data.password.length < 8) {
-      throw new Error('Password must be at least 8 characters long');
+    if (data.password.length < 12) {
+      throw new Error('Password must be at least 12 characters long');
+    }
+
+    // Check for password complexity
+    const hasUpperCase = /[A-Z]/.test(data.password);
+    const hasLowerCase = /[a-z]/.test(data.password);
+    const hasNumber = /[0-9]/.test(data.password);
+
+    if (!hasUpperCase || !hasLowerCase || !hasNumber) {
+      throw new Error('Password must contain uppercase, lowercase, and numbers');
     }
 
     // Hash password
@@ -220,8 +229,17 @@ class AuthService {
     }
 
     // Validate new password
-    if (newPassword.length < 8) {
-      throw new Error('New password must be at least 8 characters long');
+    if (newPassword.length < 12) {
+      throw new Error('New password must be at least 12 characters long');
+    }
+
+    // Check for password complexity
+    const hasUpperCase = /[A-Z]/.test(newPassword);
+    const hasLowerCase = /[a-z]/.test(newPassword);
+    const hasNumber = /[0-9]/.test(newPassword);
+
+    if (!hasUpperCase || !hasLowerCase || !hasNumber) {
+      throw new Error('New password must contain uppercase, lowercase, and numbers');
     }
 
     // Hash and update password
