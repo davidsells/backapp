@@ -10,6 +10,9 @@ jest.mock('@/lib/db/client', () => ({
       create: jest.fn(),
       update: jest.fn(),
     },
+    appSettings: {
+      findFirst: jest.fn(),
+    },
   },
 }));
 
@@ -27,12 +30,12 @@ describe('AuthService', () => {
         id: '123',
         email: 'test@example.com',
         name: 'Test User',
-        passwordHash: 'hashed_password',
         role: 'user',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
+      (prisma.appSettings.findFirst as jest.Mock).mockResolvedValue({ requireApproval: false });
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
       (bcrypt.hash as jest.Mock).mockResolvedValue('hashed_password');
       (prisma.user.create as jest.Mock).mockResolvedValue(mockUser);
@@ -40,7 +43,7 @@ describe('AuthService', () => {
       const result = await authService.registerUser({
         email: 'test@example.com',
         name: 'Test User',
-        password: 'password123',
+        password: 'SecurePass123',
       });
 
       expect(result).toEqual({
@@ -55,6 +58,7 @@ describe('AuthService', () => {
     });
 
     it('should throw error if user already exists', async () => {
+      (prisma.appSettings.findFirst as jest.Mock).mockResolvedValue({ requireApproval: false });
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({
         id: '123',
         email: 'test@example.com',
@@ -64,12 +68,13 @@ describe('AuthService', () => {
         authService.registerUser({
           email: 'test@example.com',
           name: 'Test User',
-          password: 'password123',
+          password: 'SecurePass123',
         })
       ).rejects.toThrow('User with this email already exists');
     });
 
     it('should throw error if password is too short', async () => {
+      (prisma.appSettings.findFirst as jest.Mock).mockResolvedValue({ requireApproval: false });
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(
@@ -78,7 +83,46 @@ describe('AuthService', () => {
           name: 'Test User',
           password: 'short',
         })
-      ).rejects.toThrow('Password must be at least 8 characters long');
+      ).rejects.toThrow('Password must be at least 12 characters long');
+    });
+
+    it('should throw error if password lacks uppercase', async () => {
+      (prisma.appSettings.findFirst as jest.Mock).mockResolvedValue({ requireApproval: false });
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        authService.registerUser({
+          email: 'test@example.com',
+          name: 'Test User',
+          password: 'lowercase123',
+        })
+      ).rejects.toThrow('Password must contain uppercase, lowercase, and numbers');
+    });
+
+    it('should throw error if password lacks lowercase', async () => {
+      (prisma.appSettings.findFirst as jest.Mock).mockResolvedValue({ requireApproval: false });
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        authService.registerUser({
+          email: 'test@example.com',
+          name: 'Test User',
+          password: 'UPPERCASE123',
+        })
+      ).rejects.toThrow('Password must contain uppercase, lowercase, and numbers');
+    });
+
+    it('should throw error if password lacks numbers', async () => {
+      (prisma.appSettings.findFirst as jest.Mock).mockResolvedValue({ requireApproval: false });
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        authService.registerUser({
+          email: 'test@example.com',
+          name: 'Test User',
+          password: 'NoNumbersHere',
+        })
+      ).rejects.toThrow('Password must contain uppercase, lowercase, and numbers');
     });
   });
 
@@ -90,6 +134,7 @@ describe('AuthService', () => {
         name: 'Test User',
         passwordHash: 'hashed_password',
         role: 'user',
+        approved: true,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -99,7 +144,7 @@ describe('AuthService', () => {
 
       const result = await authService.validateCredentials(
         'test@example.com',
-        'password123'
+        'SecurePass123'
       );
 
       expect(result).toEqual({
@@ -117,7 +162,7 @@ describe('AuthService', () => {
 
       const result = await authService.validateCredentials(
         'test@example.com',
-        'password123'
+        'SecurePass123'
       );
 
       expect(result).toBeNull();
@@ -128,6 +173,7 @@ describe('AuthService', () => {
         id: '123',
         email: 'test@example.com',
         passwordHash: 'hashed_password',
+        approved: true,
       };
 
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
@@ -217,7 +263,7 @@ describe('AuthService', () => {
       (bcrypt.hash as jest.Mock).mockResolvedValue('new_hashed_password');
       (prisma.user.update as jest.Mock).mockResolvedValue({});
 
-      await authService.changePassword('123', 'oldpassword', 'newpassword123');
+      await authService.changePassword('123', 'OldPassword1', 'NewPassword123');
 
       expect(prisma.user.update).toHaveBeenCalled();
     });
@@ -226,7 +272,7 @@ describe('AuthService', () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(
-        authService.changePassword('999', 'oldpassword', 'newpassword123')
+        authService.changePassword('999', 'OldPassword1', 'NewPassword123')
       ).rejects.toThrow('User not found');
     });
 
@@ -240,7 +286,7 @@ describe('AuthService', () => {
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
       await expect(
-        authService.changePassword('123', 'wrongpassword', 'newpassword123')
+        authService.changePassword('123', 'WrongPassword1', 'NewPassword123')
       ).rejects.toThrow('Current password is incorrect');
     });
 
@@ -254,8 +300,22 @@ describe('AuthService', () => {
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
       await expect(
-        authService.changePassword('123', 'oldpassword', 'short')
-      ).rejects.toThrow('New password must be at least 8 characters long');
+        authService.changePassword('123', 'OldPassword1', 'short')
+      ).rejects.toThrow('New password must be at least 12 characters long');
+    });
+
+    it('should throw error if new password lacks complexity', async () => {
+      const mockUser = {
+        id: '123',
+        passwordHash: 'old_hashed_password',
+      };
+
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      await expect(
+        authService.changePassword('123', 'OldPassword1', 'nocomplexity')
+      ).rejects.toThrow('New password must contain uppercase, lowercase, and numbers');
     });
   });
 });
