@@ -1,4 +1,39 @@
 import '@testing-library/jest-dom';
+import { TextEncoder, TextDecoder } from 'util';
+
+// Polyfill for Web APIs required by Next.js server components
+Object.assign(global, { TextDecoder, TextEncoder });
+
+// Mock Request and Response for Next.js server components
+global.Request = class Request {
+  constructor(input, init) {
+    this.url = input;
+    this.method = init?.method || 'GET';
+    this.headers = new Map(Object.entries(init?.headers || {}));
+  }
+} as any;
+
+global.Response = class Response {
+  constructor(body, init) {
+    this.body = body;
+    this.status = init?.status || 200;
+    this.headers = new Map(Object.entries(init?.headers || {}));
+  }
+
+  static json(data, init) {
+    return new Response(JSON.stringify(data), {
+      ...init,
+      headers: {
+        ...init?.headers,
+        'content-type': 'application/json',
+      },
+    });
+  }
+
+  async json() {
+    return typeof this.body === 'string' ? JSON.parse(this.body) : this.body;
+  }
+} as any;
 
 // Mock environment variables for tests
 Object.assign(process.env, {
