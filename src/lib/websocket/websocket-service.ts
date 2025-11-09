@@ -278,7 +278,7 @@ export class WebSocketService {
    */
   closeAll(): void {
     this.stopPingInterval();
-    this.clients.forEach((client, ws) => {
+    this.clients.forEach((_client, ws) => {
       ws.close();
     });
     this.clients.clear();
