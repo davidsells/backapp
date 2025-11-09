@@ -50,14 +50,14 @@ export class EmailService {
    * Send an email
    */
   async sendEmail(options: SendEmailOptions): Promise<void> {
-    if (!this.isConfigured()) {
+    if (!this.isConfigured() || !this.transporter || !this.config) {
       console.warn('[Email] Email service not configured, skipping email send');
       return;
     }
 
     try {
-      await this.transporter!.sendMail({
-        from: this.config!.from,
+      await this.transporter.sendMail({
+        from: this.config.from,
         to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
         subject: options.subject,
         text: options.text,
@@ -194,12 +194,12 @@ This is an automated message from BackApp.
    * Test email configuration
    */
   async testConnection(): Promise<boolean> {
-    if (!this.isConfigured()) {
+    if (!this.isConfigured() || !this.transporter) {
       throw new Error('Email service not configured');
     }
 
     try {
-      await this.transporter!.verify();
+      await this.transporter.verify();
       return true;
     } catch (error) {
       console.error('[Email] Connection test failed:', error);
