@@ -63,7 +63,8 @@ describe('Agent Authentication', () => {
 
       expect(agent).toBeNull();
       expect(error).toBeDefined();
-      const response = error!;
+      if (!error) return; // Type guard
+      const response = error;
       expect(response.status).toBe(401);
 
       const json = await response.json();
@@ -85,7 +86,8 @@ describe('Agent Authentication', () => {
 
       expect(agent).toBeNull();
       expect(error).toBeDefined();
-      const response = error!;
+      if (!error) return; // Type guard
+      const response = error;
       expect(response.status).toBe(401);
     });
 
@@ -104,7 +106,8 @@ describe('Agent Authentication', () => {
 
       expect(agent).toBeNull();
       expect(error).toBeDefined();
-      const response = error!;
+      if (!error) return; // Type guard
+      const response = error;
       expect(response.status).toBe(401);
 
       const json = await response.json();
@@ -135,7 +138,8 @@ describe('Agent Authentication', () => {
 
       expect(agent).toBeNull();
       expect(error).toBeDefined();
-      const response = error!;
+      if (!error) return; // Type guard
+      const response = error;
       expect(response.status).toBe(401);
 
       const json = await response.json();
@@ -191,7 +195,8 @@ describe('Agent Authentication', () => {
 
       expect(agent).toBeNull();
       expect(error).toBeDefined();
-      const response = error!;
+      if (!error) return; // Type guard
+      const response = error;
       expect(response.status).toBe(500);
 
       const json = await response.json();
@@ -248,7 +253,7 @@ describe('Agent Authentication', () => {
       });
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
-      await requireAgentAuth(request);
+      await requireAgentAuth(request as any);
 
       // Verify lookup is by plaintext apiKey
       // This is the CRITICAL-001 vulnerability documented in security audit
@@ -274,7 +279,7 @@ describe('Agent Authentication', () => {
       });
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
-      const { error } = await requireAgentAuth(request);
+      const { error } = await requireAgentAuth(request as any);
 
       expect(error).toBeNull();
     });
@@ -287,7 +292,7 @@ describe('Agent Authentication', () => {
 
       (prisma.agent.findUnique as jest.Mock).mockResolvedValue(null);
 
-      const { error } = await requireAgentAuth(request);
+      const { error } = await requireAgentAuth(request as any);
 
       expect(error).toBeDefined();
     });
@@ -300,7 +305,7 @@ describe('Agent Authentication', () => {
 
       (prisma.agent.findUnique as jest.Mock).mockResolvedValue(null);
 
-      const { error } = await requireAgentAuth(request);
+      const { error } = await requireAgentAuth(request as any);
 
       expect(error).toBeDefined();
     });

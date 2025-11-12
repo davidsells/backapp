@@ -147,7 +147,7 @@ describe('WebSocketService', () => {
       wsService.addClient(unauthenticatedWs as unknown as WebSocket, false, null);
 
       wsService.broadcastToUser('user123', {
-        type: 'test',
+        type: 'backup_progress',
         data: {},
         timestamp: Date.now(),
       });

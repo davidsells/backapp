@@ -5,23 +5,31 @@ import { TextEncoder, TextDecoder } from 'util';
 Object.assign(global, { TextDecoder, TextEncoder });
 
 // Mock Request and Response for Next.js server components
-global.Request = class Request {
-  constructor(input, init) {
+(global as any).Request = class MockRequest {
+  url: string;
+  method: string;
+  headers: Map<string, string>;
+
+  constructor(input: any, init?: any) {
     this.url = input;
     this.method = init?.method || 'GET';
     this.headers = new Map(Object.entries(init?.headers || {}));
   }
-} as any;
+};
 
-global.Response = class Response {
-  constructor(body, init) {
+(global as any).Response = class MockResponse {
+  body: any;
+  status: number;
+  headers: Map<string, string>;
+
+  constructor(body?: any, init?: any) {
     this.body = body;
     this.status = init?.status || 200;
     this.headers = new Map(Object.entries(init?.headers || {}));
   }
 
-  static json(data, init) {
-    return new Response(JSON.stringify(data), {
+  static json(data: any, init?: any) {
+    return new (global as any).Response(JSON.stringify(data), {
       ...init,
       headers: {
         ...init?.headers,
@@ -33,7 +41,7 @@ global.Response = class Response {
   async json() {
     return typeof this.body === 'string' ? JSON.parse(this.body) : this.body;
   }
-} as any;
+};
 
 // Mock environment variables for tests
 Object.assign(process.env, {
