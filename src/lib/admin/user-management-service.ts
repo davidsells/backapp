@@ -21,7 +21,7 @@ export class UserManagementService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return users.map((user) => ({
+    return users.map((user: any) => ({
       id: user.id,
       email: user.email,
       name: user.name,
@@ -45,7 +45,7 @@ export class UserManagementService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return users.map((user) => ({
+    return users.map((user: any) => ({
       id: user.id,
       email: user.email,
       name: user.name,

@@ -46,8 +46,8 @@ export async function GET(request: NextRequest) {
     // Mark configs with pending requests as "picked up" by clearing requestedAt
     // This prevents the agent from running the same backup multiple times
     const requestedConfigIds = configs
-      .filter((c) => c.requestedAt !== null)
-      .map((c) => c.id);
+      .filter((c: any) => c.requestedAt !== null)
+      .map((c: any) => c.id);
 
     if (requestedConfigIds.length > 0) {
       await prisma.backupConfig.updateMany({
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      configs: configs.map((config) => ({
+      configs: configs.map((config: any) => ({
         id: config.id,
         name: config.name,
         sources: config.sources,

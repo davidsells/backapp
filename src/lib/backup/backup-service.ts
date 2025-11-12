@@ -84,7 +84,7 @@ export class BackupService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return configs.map((config) => this.mapToBackupConfig(config));
+    return configs.map((config: any) => this.mapToBackupConfig(config));
   }
 
   /**
@@ -200,12 +200,12 @@ export class BackupService {
     });
 
     const totalBytesTransferred = allLogs.reduce(
-      (sum, log) => sum + Number(log.bytesTransferred),
+      (sum: number, log: any) => sum + Number(log.bytesTransferred),
       0
     );
 
     const totalFilesProcessed = allLogs.reduce(
-      (sum, log) => sum + log.filesProcessed,
+      (sum: number, log: any) => sum + log.filesProcessed,
       0
     );
 

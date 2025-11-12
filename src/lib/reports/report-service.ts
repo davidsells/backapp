@@ -119,16 +119,16 @@ export class ReportService {
 
     // Calculate summary statistics
     const totalBackups = logs.length;
-    const successfulBackups = logs.filter((log) => log.status === 'completed').length;
-    const failedBackups = logs.filter((log) => log.status === 'failed').length;
+    const successfulBackups = logs.filter((log: any) => log.status === 'completed').length;
+    const failedBackups = logs.filter((log: any) => log.status === 'failed').length;
     const successRate = totalBackups > 0 ? (successfulBackups / totalBackups) * 100 : 0;
 
-    const totalDataTransferred = logs.reduce((sum, log) => sum + Number(log.bytesTransferred), 0);
-    const totalFilesProcessed = logs.reduce((sum, log) => sum + log.filesProcessed, 0);
+    const totalDataTransferred = logs.reduce((sum: number, log: any) => sum + Number(log.bytesTransferred), 0);
+    const totalFilesProcessed = logs.reduce((sum: number, log: any) => sum + log.filesProcessed, 0);
 
-    const completedLogs = logs.filter((log) => log.duration !== null);
+    const completedLogs = logs.filter((log: any) => log.duration !== null);
     const averageDuration = completedLogs.length > 0
-      ? completedLogs.reduce((sum, log) => sum + (log.duration || 0), 0) / completedLogs.length
+      ? completedLogs.reduce((sum: number, log: any) => sum + (log.duration || 0), 0) / completedLogs.length
       : 0;
 
     // Group by config
@@ -140,7 +140,7 @@ export class ReportService {
       lastBackup: Date | null;
     }>();
 
-    logs.forEach((log) => {
+    logs.forEach((log: any) => {
       const configId = log.config.id;
       const existing = configMap.get(configId);
 
@@ -164,7 +164,7 @@ export class ReportService {
     });
 
     // Format backups for report
-    const backups: BackupSummary[] = logs.map((log) => ({
+    const backups: BackupSummary[] = logs.map((log: any) => ({
       id: log.id,
       configName: log.config.name,
       startTime: log.startTime,

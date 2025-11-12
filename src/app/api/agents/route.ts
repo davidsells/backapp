@@ -32,7 +32,7 @@ export async function GET(_request: NextRequest) {
     // Update agent status based on last heartbeat
     const now = new Date();
     const updatedAgents = await Promise.all(
-      agents.map(async (agent) => {
+      agents.map(async (agent: any) => {
         let currentStatus = agent.status;
 
         // If agent was online but hasn't sent heartbeat recently, mark as offline
