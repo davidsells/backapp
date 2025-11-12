@@ -7,7 +7,10 @@ class MockHeaders {
   private headers: Map<string, string>;
 
   constructor(init?: Record<string, string>) {
-    this.headers = new Map(Object.entries(init || {}));
+    // Store all headers with lowercase keys for case-insensitive lookup
+    this.headers = new Map(
+      Object.entries(init || {}).map(([key, value]) => [key.toLowerCase(), value])
+    );
   }
 
   get(name: string): string | null {
@@ -69,7 +72,7 @@ describe('Agent Authentication', () => {
 
       const json = await response.json();
       expect(json.success).toBe(false);
-      expect(json.error).toContain('API key is required');
+      expect(json.error).toContain('Missing X-Agent-API-Key header');
     });
 
     it('should reject requests with invalid API key format', async () => {
@@ -161,9 +164,9 @@ describe('Agent Authentication', () => {
         apiKey,
         apiKeyHash: 'hashed_correct_key',
         userId: 'user-123',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        lastSeenAt: new Date(),
+        platform: 'darwin',
+        version: '1.0.0',
+        status: 'online',
       };
 
       (prisma.agent.findUnique as jest.Mock).mockResolvedValue(mockAgent);
@@ -172,7 +175,14 @@ describe('Agent Authentication', () => {
       const { error, agent } = await requireAgentAuth(request as any);
 
       expect(error).toBeNull();
-      expect(agent).toEqual(mockAgent);
+      // Should only return non-sensitive fields
+      expect(agent).toEqual({
+        id: mockAgent.id,
+        name: mockAgent.name,
+        userId: mockAgent.userId,
+        platform: mockAgent.platform,
+        version: mockAgent.version,
+      });
 
       // Verify bcrypt.compare was called correctly
       expect(bcrypt.compare).toHaveBeenCalledWith(apiKey, mockAgent.apiKeyHash);
@@ -200,7 +210,7 @@ describe('Agent Authentication', () => {
       expect(response.status).toBe(500);
 
       const json = await response.json();
-      expect(json.error).toContain('Internal server error');
+      expect(json.error).toContain('Authentication failed');
     });
   });
 

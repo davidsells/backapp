@@ -1,9 +1,29 @@
+// Mock ws module before importing WebSocketService
+jest.mock('ws', () => {
+  const actualWs = jest.requireActual('ws');
+  return {
+    ...actualWs,
+    WebSocket: class MockWebSocket {
+      static OPEN = 1;
+      static CLOSED = 3;
+      public readyState = 1;
+      public send = jest.fn();
+      public close = jest.fn();
+      public on = jest.fn();
+      public off = jest.fn();
+      constructor() {
+        this.readyState = 1;
+      }
+    },
+  };
+});
+
 import { WebSocketService } from '../websocket-service';
 import { WebSocket } from 'ws';
 
-// Mock WebSocket class
+// Mock WebSocket class for tests
 class MockWebSocket {
-  public readyState = 1; // WebSocket.OPEN = 1
+  public readyState = 1;
   public send = jest.fn();
   public close = jest.fn();
   public on = jest.fn();
@@ -18,6 +38,11 @@ describe('WebSocketService', () => {
     wsService = new WebSocketService();
     mockWs = new MockWebSocket();
     jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    // Clean up ping interval to prevent memory leaks and test interference
+    wsService.stopPingInterval();
   });
 
   describe('addClient - Browser Client Security', () => {
@@ -164,6 +189,10 @@ describe('WebSocketService', () => {
     it('should properly clean up client on disconnect', () => {
       wsService.addClient(mockWs as unknown as WebSocket, false, 'user123');
 
+      // Verify client was added
+      const statsBefore = wsService.getStats();
+      expect(statsBefore.totalClients).toBe(1);
+
       const closeHandler = mockWs.on.mock.calls.find(
         (call) => call[0] === 'close'
       )?.[1];
@@ -173,7 +202,9 @@ describe('WebSocketService', () => {
       // Trigger close
       closeHandler();
 
-      expect(mockWs.off).toHaveBeenCalled();
+      // Verify client was removed
+      const statsAfter = wsService.getStats();
+      expect(statsAfter.totalClients).toBe(0);
     });
   });
 
