@@ -3,6 +3,9 @@ import { z } from 'zod';
 import { auth } from '@/lib/auth/auth';
 import { getBackupService } from '@/lib/backup/backup-service';
 
+// Force this route to be dynamic (not statically generated)
+export const dynamic = 'force-dynamic';
+
 const backupSourceSchema = z.object({
   path: z.string().min(1, 'Path is required'),
   excludePatterns: z.array(z.string()).optional(),
@@ -50,9 +53,6 @@ export async function GET() {
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const backupService = getBackupService();
-    const configs = await backupService.listConfigs(session.user.id);
 
     // Fetch configs with agent data from Prisma directly
     const { prisma } = await import('@/lib/db/prisma');

@@ -36,7 +36,7 @@ export interface BackupConfig {
   agentId?: string | null;
   sources: BackupSource[];
   destination: S3Destination;
-  schedule: ScheduleConfig;
+  schedule: ScheduleConfig | null;
   options: BackupOptions;
   createdAt: Date;
   updatedAt: Date;
