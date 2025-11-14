@@ -259,12 +259,12 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
               >
                 {isRunning ? 'Requesting...' : 'Run Now'}
               </Button>
-              <Link href={`/backups/${config.id}`}>
+              <Link href={`/configs/${config.id}`}>
                 <Button variant="outline" size="sm">
                   View
                 </Button>
               </Link>
-              <Link href={`/backups/${config.id}/edit`}>
+              <Link href={`/configs/${config.id}/edit`}>
                 <Button variant="outline" size="sm">
                   Edit
                 </Button>

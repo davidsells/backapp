@@ -39,13 +39,14 @@ interface FormData {
   };
 }
 
-export function BackupConfigForm({ initialData }: { initialData?: Partial<FormData> }) {
+export function BackupConfigForm({ initialData, configId }: { initialData?: Partial<FormData>; configId?: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [useSchedule, setUseSchedule] = useState(!!initialData?.schedule);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loadingAgents, setLoadingAgents] = useState(true);
+  const isEditing = !!configId;
 
   const [formData, setFormData] = useState<FormData>({
     name: initialData?.name || '',
@@ -124,8 +125,11 @@ export function BackupConfigForm({ initialData }: { initialData?: Partial<FormDa
         options: formData.options,
       };
 
-      const response = await fetch('/api/backups/configs', {
-        method: 'POST',
+      const url = isEditing ? `/api/backups/configs/${configId}` : '/api/backups/configs';
+      const method = isEditing ? 'PATCH' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(submitData),
       });
@@ -133,10 +137,10 @@ export function BackupConfigForm({ initialData }: { initialData?: Partial<FormDa
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to create backup configuration');
+        throw new Error(data.error || `Failed to ${isEditing ? 'update' : 'create'} backup configuration`);
       }
 
-      router.push('/backups');
+      router.push(isEditing ? `/configs/${configId}` : '/configs');
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -562,7 +566,9 @@ export function BackupConfigForm({ initialData }: { initialData?: Partial<FormDa
       {/* Submit */}
       <div className="flex gap-4">
         <Button type="submit" disabled={loading}>
-          {loading ? 'Creating...' : 'Create Backup Configuration'}
+          {loading
+            ? (isEditing ? 'Updating...' : 'Creating...')
+            : (isEditing ? 'Update Configuration' : 'Create Configuration')}
         </Button>
         <Button type="button" variant="outline" onClick={() => router.back()}>
           Cancel
