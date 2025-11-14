@@ -59,7 +59,6 @@ function matchesPattern(filePath: string, patterns: string[]): boolean {
  * Check if a file should be included based on backup source configuration
  */
 export function shouldIncludeFile(
-  filePath: string,
   relativePath: string,
   source: BackupSource
 ): { include: boolean; reason?: string } {
@@ -116,13 +115,13 @@ export async function scanDirectory(
 
       if (entry.isDirectory()) {
         // Check if directory should be included
-        const { include } = shouldIncludeFile(fullPath, metadata.relativePath, source);
+        const { include } = shouldIncludeFile(metadata.relativePath, source);
         if (include) {
           await scan(fullPath);
         }
       } else {
         // Check if file should be included
-        const { include } = shouldIncludeFile(fullPath, metadata.relativePath, source);
+        const { include } = shouldIncludeFile(metadata.relativePath, source);
         if (include) {
           files.push(metadata);
         }
