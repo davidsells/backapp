@@ -34,7 +34,7 @@ export async function authenticateUser(credentials: LoginCredentials): Promise<A
       };
     }
 
-    const isValid = await verifyPassword(credentials.password, user.password);
+    const isValid = await verifyPassword(credentials.password, user.passwordHash);
 
     if (!isValid) {
       return {
@@ -43,8 +43,8 @@ export async function authenticateUser(credentials: LoginCredentials): Promise<A
       };
     }
 
-    // Remove password from user object
-    const { password: _, ...userWithoutPassword } = user;
+    // Remove passwordHash from user object
+    const { passwordHash: _, ...userWithoutPassword } = user;
 
     return {
       success: true,
@@ -72,7 +72,7 @@ export async function getUserById(id: string): Promise<User | null> {
       return null;
     }
 
-    const { password: _, ...userWithoutPassword } = user;
+    const { passwordHash: _, ...userWithoutPassword } = user;
     return userWithoutPassword as User;
   } catch (error) {
     console.error('Error fetching user:', error);
@@ -102,12 +102,12 @@ export async function createUser(email: string, name: string, password: string, 
       data: {
         email,
         name,
-        password: hashedPassword,
+        passwordHash: hashedPassword,
         role,
       },
     });
 
-    const { password: _, ...userWithoutPassword } = user;
+    const { passwordHash: _, ...userWithoutPassword } = user;
 
     return {
       success: true,
