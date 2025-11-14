@@ -1,9 +1,32 @@
+// Mock the 'ws' module before importing
+jest.mock('ws', () => {
+  const WEBSOCKET_OPEN = 1;
+  const WEBSOCKET_CLOSING = 2;
+  const WEBSOCKET_CLOSED = 3;
+
+  class MockWebSocket {
+    public readyState = WEBSOCKET_OPEN;
+    public send = jest.fn();
+    public close = jest.fn();
+    public on = jest.fn();
+    public off = jest.fn();
+
+    static OPEN = WEBSOCKET_OPEN;
+    static CLOSING = WEBSOCKET_CLOSING;
+    static CLOSED = WEBSOCKET_CLOSED;
+  }
+
+  return {
+    WebSocket: MockWebSocket,
+  };
+});
+
 import { WebSocketService } from '../websocket-service';
 import { WebSocket } from 'ws';
 
-// Mock WebSocket class
+// Mock WebSocket class for tests
 class MockWebSocket {
-  public readyState = 1; // WebSocket.OPEN = 1
+  public readyState = 1; // WebSocket.OPEN
   public send = jest.fn();
   public close = jest.fn();
   public on = jest.fn();
@@ -170,10 +193,14 @@ describe('WebSocketService', () => {
 
       expect(closeHandler).toBeDefined();
 
+      // Verify client is in the map
+      expect((wsService as any).clients.size).toBe(1);
+
       // Trigger close
       closeHandler();
 
-      expect(mockWs.off).toHaveBeenCalled();
+      // Verify client was removed from the map
+      expect((wsService as any).clients.size).toBe(0);
     });
   });
 
