@@ -1,5 +1,5 @@
 import { compare, hash } from 'bcrypt';
-import type { User, AuthSession, LoginCredentials, AuthResponse } from '@/types/auth.types';
+import type { User, LoginCredentials, AuthResponse } from '@/types/auth.types';
 import { prisma } from '@/lib/db/prisma';
 
 const SALT_ROUNDS = 10;
