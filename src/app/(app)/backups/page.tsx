@@ -5,7 +5,6 @@ import { redirect } from 'next/navigation';
 import { getBackupService } from '@/lib/backup/backup-service';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BackupConfigList } from '@/components/backup/backup-config-list';
 import { AlertBanner } from '@/components/alerts/alert-banner';
 import { BackupProgressMonitor } from '@/components/backups/backup-progress-monitor';
 
@@ -54,7 +53,6 @@ async function BackupsList() {
   }
 
   const backupService = getBackupService();
-  const configs = await backupService.listConfigs(session.user.id);
   const stats = await backupService.getStats(session.user.id);
 
   return (
@@ -137,29 +135,42 @@ async function BackupsList() {
         </Card>
       )}
 
-      {/* Backup Configurations */}
+      {/* Quick Actions */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Backup Configurations</CardTitle>
-              <CardDescription>Manage your backup jobs and schedules</CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <Link href="/backups/reports">
-                <Button variant="outline">View Reports</Button>
-              </Link>
-              <Link href="/backups/logs">
-                <Button variant="outline">View All Logs</Button>
-              </Link>
-              <Link href="/backups/new">
-                <Button>Create Backup</Button>
-              </Link>
-            </div>
-          </div>
+          <CardTitle>Quick Actions</CardTitle>
+          <CardDescription>Manage your backup system</CardDescription>
         </CardHeader>
         <CardContent>
-          <BackupConfigList configs={configs} />
+          <div className="grid gap-4 md:grid-cols-3">
+            <Link href="/configs" className="block">
+              <div className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                <h3 className="font-semibold mb-2">Manage Configurations</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Create and edit backup job configurations
+                </p>
+                <Button variant="outline" size="sm">View Configurations</Button>
+              </div>
+            </Link>
+            <Link href="/reports" className="block">
+              <div className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                <h3 className="font-semibold mb-2">View Reports</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Generate detailed backup analytics and reports
+                </p>
+                <Button variant="outline" size="sm">View Reports</Button>
+              </div>
+            </Link>
+            <Link href="/backups/logs" className="block">
+              <div className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                <h3 className="font-semibold mb-2">View All Logs</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Browse complete backup execution history
+                </p>
+                <Button variant="outline" size="sm">View Logs</Button>
+              </div>
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -170,9 +181,9 @@ export default function BackupsPage() {
   return (
     <div className="container mx-auto py-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold">Backups</h1>
+        <h1 className="text-3xl font-bold">Backup Execution</h1>
         <p className="text-muted-foreground">
-          Configure and manage your backup schedules
+          Monitor backup execution status, history, and performance
         </p>
       </div>
       <Suspense fallback={<div>Loading...</div>}>
