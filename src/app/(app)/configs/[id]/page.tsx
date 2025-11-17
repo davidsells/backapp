@@ -5,6 +5,7 @@ import { redirect, notFound } from 'next/navigation';
 import { getBackupService } from '@/lib/backup/backup-service';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { S3BackupBrowser } from '@/components/storage/s3-backup-browser';
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -236,7 +237,7 @@ async function ConfigDetails({ configId }: { configId: string }) {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Recent Backups</CardTitle>
+              <CardTitle>Recent Backup Executions</CardTitle>
               <CardDescription>Last 10 backup executions for this configuration</CardDescription>
             </div>
             <Link href="/backups/logs">
@@ -271,6 +272,16 @@ async function ConfigDetails({ configId }: { configId: string }) {
           )}
         </CardContent>
       </Card>
+
+      {/* S3 Backup Files */}
+      {config.executionMode === 'agent' && config.agentId && (
+        <S3BackupBrowser
+          userId={session.user.id}
+          agentId={config.agentId}
+          configId={config.id}
+          title="S3 Backup Files for this Configuration"
+        />
+      )}
     </div>
   );
 }

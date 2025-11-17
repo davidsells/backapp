@@ -30,6 +30,7 @@ export function AgentManagement({ agents }: AgentManagementProps) {
   const [newAgent, setNewAgent] = useState<{ name: string; apiKey: string } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteBackups, setDeleteBackups] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,7 +108,8 @@ export function AgentManagement({ agents }: AgentManagementProps) {
     setError('');
 
     try {
-      const res = await fetch(`/api/agents/${deleteConfirm.id}`, {
+      const url = `/api/agents/${deleteConfirm.id}${deleteBackups ? '?deleteBackups=true' : ''}`;
+      const res = await fetch(url, {
         method: 'DELETE',
       });
 
@@ -119,10 +121,12 @@ export function AgentManagement({ agents }: AgentManagementProps) {
 
       // Close dialog and refresh
       setDeleteConfirm(null);
+      setDeleteBackups(false);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete agent');
       setDeleteConfirm(null);
+      setDeleteBackups(false);
     } finally {
       setDeleteLoading(false);
     }
@@ -202,6 +206,19 @@ export function AgentManagement({ agents }: AgentManagementProps) {
             <div className="text-sm text-muted-foreground">
               This will permanently delete the agent and all its logs. Any backup configurations using this agent will be unassigned but not deleted.
             </div>
+            <div className="flex items-center space-x-2 p-3 border rounded-lg bg-yellow-50 border-yellow-200">
+              <input
+                type="checkbox"
+                id="deleteBackups"
+                checked={deleteBackups}
+                onChange={(e) => setDeleteBackups(e.target.checked)}
+                className="w-4 h-4"
+                disabled={deleteLoading}
+              />
+              <Label htmlFor="deleteBackups" className="text-sm font-medium cursor-pointer">
+                Also delete all S3 backup files for this agent (cannot be undone)
+              </Label>
+            </div>
             <div className="flex gap-2">
               <Button
                 onClick={handleDelete}
@@ -211,7 +228,10 @@ export function AgentManagement({ agents }: AgentManagementProps) {
                 {deleteLoading ? 'Deleting...' : 'Delete Agent'}
               </Button>
               <Button
-                onClick={() => setDeleteConfirm(null)}
+                onClick={() => {
+                  setDeleteConfirm(null);
+                  setDeleteBackups(false);
+                }}
                 disabled={deleteLoading}
                 variant="outline"
               >
