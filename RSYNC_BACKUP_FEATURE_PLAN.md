@@ -13,12 +13,32 @@ This provides an efficient alternative to direct S3 uploads, especially for:
 
 ## Architecture
 
-### Backup Types
+### Backup Types (How backup is performed)
 
 Currently: `direct-s3` (agent uploads tar.gz directly to S3)
 **New**:
 - `rsync-local` - rsync to local/external directory only
 - `rsync-to-s3` - two-stage: rsync local, then aws s3 sync to S3
+
+### Execution Timing (When backup is performed)
+
+**Both manual and scheduled execution are supported for ALL backup types:**
+
+1. **Manual Execution**
+   - User clicks "Run Now" button in UI
+   - Backup executes immediately
+   - Config has `schedule: null`
+
+2. **Scheduled Execution**
+   - Automated via cron expression
+   - Runs at specified intervals
+   - Config has `schedule: { cronExpression, timezone }`
+
+**Examples:**
+- Manual direct-s3 backup: On-demand tar.gz to S3
+- Scheduled rsync-local: Daily rsync to external drive at 2 AM
+- Manual rsync-to-s3: On-demand two-stage backup
+- Scheduled rsync-to-s3: Weekly two-stage backup every Sunday
 
 ### Workflow Comparison
 
@@ -378,6 +398,47 @@ Add new section after "Execution Mode":
     <option value="rsync-local">Rsync to Local/External Drive</option>
     <option value="rsync-to-s3">Rsync + S3 Sync (Two-Stage)</option>
   </Select>
+  <p className="text-sm text-muted-foreground">
+    How the backup is performed (works with both manual and scheduled execution)
+  </p>
+</div>
+
+{/* Schedule Configuration - Works for ALL backup types */}
+<div>
+  <Label>Execution Schedule</Label>
+  <div className="flex items-center gap-2 mb-2">
+    <input
+      type="radio"
+      checked={scheduleType === 'manual'}
+      onChange={() => setScheduleType('manual')}
+    />
+    <Label>Manual Only (Run Now button)</Label>
+  </div>
+  <div className="flex items-center gap-2">
+    <input
+      type="radio"
+      checked={scheduleType === 'scheduled'}
+      onChange={() => setScheduleType('scheduled')}
+    />
+    <Label>Scheduled (Automated)</Label>
+  </div>
+
+  {scheduleType === 'scheduled' && (
+    <div className="mt-4 p-4 border rounded">
+      <Label>Cron Expression</Label>
+      <Input
+        value={schedule.cronExpression}
+        placeholder="0 2 * * * (Daily at 2 AM)"
+        onChange={(e) => setSchedule({...schedule, cronExpression: e.target.value})}
+      />
+      <Label>Timezone</Label>
+      <Select value={schedule.timezone} onChange={(e) => setSchedule({...schedule, timezone: e.target.value})}>
+        <option value="America/New_York">America/New_York</option>
+        <option value="America/Los_Angeles">America/Los_Angeles</option>
+        {/* ... more timezones ... */}
+      </Select>
+    </div>
+  )}
 </div>
 
 {/* Rsync Options (conditional) */}
@@ -625,6 +686,54 @@ ADD COLUMN rsync_stats JSONB;
    - Agent executes both stages
    - Verify S3 files exist
    - Check both stage stats in log
+
+## Common Use Cases
+
+### 1. External Drive Backups (Manual)
+**Config**: rsync-local, manual execution
+```
+Backup Type: rsync-local
+Schedule: null (manual only)
+Local Destination: /Volumes/MyBackupDrive/Photos
+```
+**Usage**: User plugs in external drive, clicks "Run Now", rsync backs up to drive
+
+### 2. Nightly Server Backups (Scheduled)
+**Config**: rsync-to-s3, scheduled execution
+```
+Backup Type: rsync-to-s3
+Schedule: { cronExpression: "0 2 * * *", timezone: "America/New_York" }
+Local Destination: /mnt/backup-staging
+S3 Sync: Enabled
+```
+**Usage**: Every night at 2 AM, rsync to local staging, then sync to S3
+
+### 3. On-Demand Cloud Backup (Manual)
+**Config**: direct-s3, manual execution
+```
+Backup Type: direct-s3
+Schedule: null (manual only)
+```
+**Usage**: User clicks "Run Now" for immediate tar.gz upload to S3
+
+### 4. Weekly Photo Archive (Scheduled)
+**Config**: rsync-local, scheduled execution
+```
+Backup Type: rsync-local
+Schedule: { cronExpression: "0 0 * * 0", timezone: "America/Los_Angeles" }
+Local Destination: /Volumes/PhotoArchive
+```
+**Usage**: Every Sunday at midnight, rsync photos to archive drive
+
+### 5. Hybrid Local + Cloud (Manual)
+**Config**: rsync-to-s3, manual execution
+```
+Backup Type: rsync-to-s3
+Schedule: null (manual only)
+Local Destination: /mnt/local-backup
+S3 Sync: Enabled
+```
+**Usage**: User clicks "Run Now", gets local backup first (fast recovery) then cloud backup (offsite safety)
 
 ## Benefits
 
