@@ -65,6 +65,12 @@ export default async function AppLayout({
                 Agents
               </Link>
               <Link
+                href="/storage"
+                className="text-sm font-medium transition-colors hover:text-primary"
+              >
+                Storage
+              </Link>
+              <Link
                 href="/reports"
                 className="text-sm font-medium transition-colors hover:text-primary"
               >
