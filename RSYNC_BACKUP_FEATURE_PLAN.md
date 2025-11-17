@@ -16,9 +16,18 @@ This provides an efficient alternative to direct S3 uploads, especially for:
 ### Backup Types (How backup is performed)
 
 Currently: `direct-s3` (agent uploads tar.gz directly to S3)
+
 **New**:
-- `rsync-local` - rsync to local/external directory only
-- `rsync-to-s3` - two-stage: rsync local, then aws s3 sync to S3
+1. **`rsync-local`** - Rsync to local/external directory only (single stage)
+   - Executes: `rsync source/ → local-destination/`
+   - Result: Backup exists only on local/external drive
+
+2. **`rsync-to-s3`** - Two-stage sequential process:
+   - **Stage 1**: `rsync source/ → local-destination/` (creates/updates local backup)
+   - **Stage 2**: `aws s3 sync local-destination/ → s3://bucket/prefix/` (syncs to cloud)
+   - Result: Backup exists in BOTH local destination AND S3
+   - Key benefit: Local backup persists for fast recovery; cloud backup for offsite safety
+   - Important: Stage 1 must complete before Stage 2 begins
 
 ### Execution Timing (When backup is performed)
 
@@ -42,21 +51,40 @@ Currently: `direct-s3` (agent uploads tar.gz directly to S3)
 
 ### Workflow Comparison
 
-**Current (direct-s3)**:
+**Type 1: direct-s3 (existing)**:
 ```
-Source Files → Agent tar.gz → S3 Presigned Upload → S3 Bucket
-```
-
-**New (rsync-local)**:
-```
-Source Files → rsync → Local/External Drive Destination
+Source Files → tar.gz compression → S3 Presigned Upload → S3 Bucket
+└─────────────────────────────────────────────────────────┘
+                    (Single Stage)
 ```
 
-**New (rsync-to-s3)**:
+**Type 2: rsync-local (NEW)**:
 ```
-Source Files → rsync → Local Replica → aws s3 sync → S3 Bucket
-             (Stage 1)                (Stage 2)
+Source Files → rsync (incremental) → Local/External Drive
+└──────────────────────────────────────────────────────────┘
+                    (Single Stage)
+Result: Backup on local drive only
 ```
+
+**Type 3: rsync-to-s3 (NEW - TWO SEQUENTIAL STAGES)**:
+```
+Stage 1:
+Source Files → rsync (incremental) → Local/External Drive Destination
+                                     (Backup persists here)
+                                            ↓
+Stage 2:                                    ↓
+                    aws s3 sync (only changes) → S3 Bucket
+
+Result: Backup exists in BOTH locations:
+  - Local: /Volumes/Backup/mydata (fast recovery)
+  - Cloud: s3://my-bucket/rsync/2025-11-17/ (offsite safety)
+```
+
+**Critical Detail for rsync-to-s3**:
+- Stage 1 completes fully before Stage 2 begins
+- Local backup is permanent (not a temporary staging area)
+- Stage 2 only uploads files that changed since last S3 sync
+- If Stage 2 fails, you still have the local backup from Stage 1
 
 ## Database Schema Changes
 
