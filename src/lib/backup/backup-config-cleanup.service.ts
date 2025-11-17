@@ -44,7 +44,7 @@ export class BackupConfigCleanupService {
 
       // Filter to only orphaned configs (agentId set but agent doesn't exist)
       const orphanedConfigs = agentConfigs.filter(
-        (config) => config.agentId && !config.agent
+        (config: any) => config.agentId && !config.agent
       );
 
       if (orphanedConfigs.length === 0) {
@@ -52,7 +52,7 @@ export class BackupConfigCleanupService {
       }
 
       // Fix each orphaned config
-      const results = orphanedConfigs.map((config) => ({
+      const results = orphanedConfigs.map((config: any) => ({
         id: config.id,
         name: config.name,
         orphanedAgentId: config.agentId!,
@@ -61,7 +61,7 @@ export class BackupConfigCleanupService {
       // Update all orphaned configs in batch
       await prisma.backupConfig.updateMany({
         where: {
-          id: { in: orphanedConfigs.map((c) => c.id) },
+          id: { in: orphanedConfigs.map((c: any) => c.id) },
         },
         data: {
           agentId: null,
@@ -148,7 +148,7 @@ export class BackupConfigCleanupService {
         },
       });
 
-      return agentConfigs.filter((config) => config.agentId && !config.agent).length;
+      return agentConfigs.filter((config: any) => config.agentId && !config.agent).length;
     } catch (error) {
       console.error('[BackupConfigCleanup] Failed to count orphaned configs:', error);
       return 0;
