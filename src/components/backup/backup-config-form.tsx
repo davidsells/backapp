@@ -31,11 +31,19 @@ interface FormData {
     timezone: string;
   };
   options: {
+    method: 'archive' | 'rsync';
     type: 'full' | 'incremental';
     compression: boolean;
     compressionLevel: number;
     encryption: boolean;
     retentionDays: number;
+    rsync?: {
+      localReplica: string;
+      delete: boolean;
+      s3Bucket: string;
+      s3Prefix?: string;
+      storageClass?: string;
+    };
   };
 }
 
@@ -65,11 +73,19 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
       timezone: 'UTC',
     },
     options: {
+      method: initialData?.options?.method || 'archive',
       type: initialData?.options?.type || 'full',
       compression: initialData?.options?.compression ?? true,
       compressionLevel: initialData?.options?.compressionLevel || 6,
       encryption: initialData?.options?.encryption ?? false,
       retentionDays: initialData?.options?.retentionDays || 30,
+      rsync: initialData?.options?.rsync || {
+        localReplica: '/tmp/backup-staging',
+        delete: true,
+        s3Bucket: '',
+        s3Prefix: 'rsync-backups',
+        storageClass: 'STANDARD_IA',
+      },
     },
   });
 
@@ -493,6 +509,135 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
           <CardDescription>Configure backup behavior</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Backup Method Selection */}
+          <div className="space-y-2">
+            <Label htmlFor="method">Backup Method</Label>
+            <select
+              id="method"
+              value={formData.options.method}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  options: { ...formData.options, method: e.target.value as 'archive' | 'rsync' },
+                })
+              }
+              className="w-full p-2 border rounded-md"
+            >
+              <option value="archive">Archive (tar.gz)</option>
+              <option value="rsync">Rsync + S3</option>
+            </select>
+            <p className="text-sm text-gray-500">
+              {formData.options.method === 'archive'
+                ? 'Creates a compressed tar.gz archive and uploads to S3'
+                : 'Uses rsync for incremental local backups, then syncs to S3'}
+            </p>
+          </div>
+
+          {/* Rsync-specific options */}
+          {formData.options.method === 'rsync' && (
+            <div className="space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+              <h4 className="font-semibold text-blue-900">Rsync Configuration</h4>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="rsyncLocalReplica">Local Staging Directory</Label>
+                  <Input
+                    id="rsyncLocalReplica"
+                    value={formData.options.rsync?.localReplica || ''}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        options: {
+                          ...formData.options,
+                          rsync: { ...formData.options.rsync!, localReplica: e.target.value },
+                        },
+                      })
+                    }
+                    placeholder="/tmp/backup-staging"
+                    required={formData.options.method === 'rsync'}
+                  />
+                  <p className="text-xs text-gray-600">Where rsync will stage files locally</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="rsyncS3Bucket">S3 Bucket</Label>
+                  <Input
+                    id="rsyncS3Bucket"
+                    value={formData.options.rsync?.s3Bucket || ''}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        options: {
+                          ...formData.options,
+                          rsync: { ...formData.options.rsync!, s3Bucket: e.target.value },
+                        },
+                      })
+                    }
+                    placeholder="my-backup-bucket"
+                    required={formData.options.method === 'rsync'}
+                  />
+                </div>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="rsyncS3Prefix">S3 Prefix (Optional)</Label>
+                  <Input
+                    id="rsyncS3Prefix"
+                    value={formData.options.rsync?.s3Prefix || ''}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        options: {
+                          ...formData.options,
+                          rsync: { ...formData.options.rsync!, s3Prefix: e.target.value },
+                        },
+                      })
+                    }
+                    placeholder="rsync-backups"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="rsyncStorageClass">S3 Storage Class</Label>
+                  <select
+                    id="rsyncStorageClass"
+                    value={formData.options.rsync?.storageClass || 'STANDARD_IA'}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        options: {
+                          ...formData.options,
+                          rsync: { ...formData.options.rsync!, storageClass: e.target.value },
+                        },
+                      })
+                    }
+                    className="w-full p-2 border rounded-md"
+                  >
+                    <option value="STANDARD">Standard</option>
+                    <option value="STANDARD_IA">Standard-IA (Infrequent Access)</option>
+                    <option value="GLACIER">Glacier</option>
+                    <option value="DEEP_ARCHIVE">Glacier Deep Archive</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="rsyncDelete"
+                  checked={formData.options.rsync?.delete ?? true}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      options: {
+                        ...formData.options,
+                        rsync: { ...formData.options.rsync!, delete: e.target.checked },
+                      },
+                    })
+                  }
+                  className="w-4 h-4"
+                />
+                <Label htmlFor="rsyncDelete">Mirror deletions (remove files from backup that no longer exist in source)</Label>
+              </div>
+            </div>
+          )}
+
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="type">Backup Type</Label>
@@ -528,38 +673,41 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
               />
             </div>
           </div>
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="compression"
-                checked={formData.options.compression}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    options: { ...formData.options, compression: e.target.checked },
-                  })
-                }
-                className="w-4 h-4"
-              />
-              <Label htmlFor="compression">Enable Compression</Label>
+          {/* Compression and encryption only apply to archive method */}
+          {formData.options.method === 'archive' && (
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="compression"
+                  checked={formData.options.compression}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      options: { ...formData.options, compression: e.target.checked },
+                    })
+                  }
+                  className="w-4 h-4"
+                />
+                <Label htmlFor="compression">Enable Compression</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="encryption"
+                  checked={formData.options.encryption}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      options: { ...formData.options, encryption: e.target.checked },
+                    })
+                  }
+                  className="w-4 h-4"
+                />
+                <Label htmlFor="encryption">Enable Encryption</Label>
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="encryption"
-                checked={formData.options.encryption}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    options: { ...formData.options, encryption: e.target.checked },
-                  })
-                }
-                className="w-4 h-4"
-              />
-              <Label htmlFor="encryption">Enable Encryption</Label>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
