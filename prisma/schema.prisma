@@ -16,31 +16,41 @@ model User {
   name         String
   passwordHash String         @map("password_hash")
   role         String         @default("user")
+  approved     Boolean        @default(true) // false for new registrations when approval required
+  deletedAt    DateTime?      @map("deleted_at") // Soft delete
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")
   configs      BackupConfig[]
   logs         BackupLog[]
   alerts       Alert[]
+  agents       Agent[]
 
   @@map("users")
 }
 
 model BackupConfig {
-  id          String      @id @default(uuid())
-  userId      String      @map("user_id")
-  name        String
-  enabled     Boolean     @default(true)
-  sources     Json
-  destination Json
-  schedule    Json
-  options     Json
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  logs        BackupLog[]
-  alerts      Alert[]
+  id            String      @id @default(uuid())
+  userId        String      @map("user_id")
+  name          String
+  enabled       Boolean     @default(true)
+  sources       Json
+  destination   Json
+  schedule      Json?       // Optional: null for manual-only backups
+  options       Json
+  agentId       String?     @map("agent_id") // null = server-side backup
+  executionMode String      @default("server") // "server" or "agent"
+  requestedAt   DateTime?   @map("requested_at") // Set when user clicks "Run Now"
+  lastRunAt     DateTime?   @map("last_run_at") // Timestamp of last execution
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent         Agent?      @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  logs          BackupLog[]
+  alerts        Alert[]
 
   @@index([userId])
+  @@index([agentId])
+  @@index([requestedAt])
   @@map("backup_configs")
 }
 
@@ -55,6 +65,7 @@ model BackupLog {
   filesSkipped     Int          @default(0) @map("files_skipped")
   totalBytes       BigInt       @default(0) @map("total_bytes")
   bytesTransferred BigInt       @default(0) @map("bytes_transferred")
+  s3Path           String?      @map("s3_path") // Full S3 key where backup is stored
   errors           Json?
   duration         Int?
   createdAt        DateTime     @default(now()) @map("created_at")
@@ -81,4 +92,50 @@ model Alert {
   @@index([userId])
   @@index([configId])
   @@map("alerts")
+}
+
+model AppSettings {
+  id                     String   @id @default(uuid())
+  registrationEnabled    Boolean  @default(false) @map("registration_enabled")
+  requireApproval        Boolean  @default(true) @map("require_approval")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@map("app_settings")
+}
+
+model Agent {
+  id           String         @id @default(uuid())
+  name         String         // "David's MacBook"
+  apiKey       String         @unique // Authentication token (plaintext, show once)
+  apiKeyHash   String         @map("api_key_hash") // Hashed version for validation
+  lastSeen     DateTime?      @map("last_seen") // Last heartbeat
+  status       String         @default("offline") // online, offline, error
+  platform     String?        // darwin, linux, win32
+  version      String?        // agent version
+  userId       String         @map("user_id")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  configs      BackupConfig[]
+  logs         AgentLog[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("agents")
+}
+
+model AgentLog {
+  id        String   @id @default(uuid())
+  agentId   String   @map("agent_id")
+  level     String   // info, warning, error
+  message   String
+  metadata  Json?    // Additional context
+  timestamp DateTime @default(now())
+  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@index([timestamp])
+  @@index([level])
+  @@map("agent_logs")
 }

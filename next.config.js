@@ -4,11 +4,17 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true,
+  eslint: {
+    // Don't fail build on ESLint warnings
+    ignoreDuringBuilds: false,
+  },
 
   experimental: {
     serverActions: {
       bodySizeLimit: '5mb',
     },
+    // Prevent bundling of native modules in server components
+    serverComponentsExternalPackages: ['bcrypt', '@mapbox/node-pre-gyp'],
   },
 
   // Security headers
@@ -48,6 +54,22 @@ const nextConfig = {
         tls: false,
       };
     }
+
+    // Exclude bcrypt and other native modules from webpack bundling
+    config.externals = [
+      ...(config.externals || []),
+      {
+        bcrypt: 'commonjs bcrypt',
+        '@mapbox/node-pre-gyp': 'commonjs @mapbox/node-pre-gyp',
+      },
+    ];
+
+    // Ignore specific node-pre-gyp files that cause issues
+    config.module = {
+      ...config.module,
+      exprContextCritical: false,
+    };
+
     return config;
   },
 };

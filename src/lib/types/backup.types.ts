@@ -4,6 +4,8 @@ export interface BackupSource {
   includePatterns?: string[];
 }
 
+export type ExecutionMode = 'agent' | 'server';
+
 export interface S3Destination {
   bucket: string;
   region: string;
@@ -39,20 +41,16 @@ export interface BackupConfig {
   userId: string;
   name: string;
   enabled: boolean;
-  sources: BackupSource[];
-  destination: S3Destination;
-  schedule: ScheduleConfig;
-  options: BackupOptions;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface BackupConfigWithAgent extends BackupConfig {
-  agent?: Agent | null;
   executionMode: ExecutionMode;
   agentId?: string | null;
-  requestedAt?: Date | null;
-  lastRunAt?: Date | null;
+  sources: BackupSource[];
+  destination: S3Destination;
+  schedule?: ScheduleConfig | null;
+  options: BackupOptions;
+  requestedAt?: Date | null;  // Set when user clicks "Run Now"
+  lastRunAt?: Date | null;     // Timestamp of last execution
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface BackupProgress {
@@ -85,13 +83,15 @@ export interface ValidationResult {
   errors?: string[];
 }
 
-export type ExecutionMode = 'server' | 'agent';
-
+// Agent types for backup configuration
 export interface Agent {
   id: string;
   name: string;
-  status: string;
+  status: 'online' | 'offline' | 'error';
   platform?: string;
-  version?: string;
-  lastSeen?: Date;
+  lastSeen?: Date | null;
+}
+
+export interface BackupConfigWithAgent extends BackupConfig {
+  agent?: Agent | null;
 }
