@@ -49,8 +49,10 @@ export class RsyncExecutor {
         throw new Error('Local replica path not configured');
       }
 
-      if (!rsyncOptions.s3Bucket) {
-        throw new Error('S3 bucket not configured');
+      // Get S3 bucket from environment variable (shared across all users/agents)
+      const s3Bucket = process.env.AWS_S3_BUCKET;
+      if (!s3Bucket) {
+        throw new Error('AWS_S3_BUCKET environment variable not configured');
       }
 
       // Validate source paths exist
@@ -64,7 +66,7 @@ export class RsyncExecutor {
       const s3Prefix = rsyncOptions.s3Prefix
         ? `${rsyncOptions.s3Prefix}/rsync/${dateTag}/`
         : `rsync/${dateTag}/`;
-      const s3Path = `s3://${rsyncOptions.s3Bucket}/${s3Prefix}`;
+      const s3Path = `s3://${s3Bucket}/${s3Prefix}`;
 
       this.logger.info(`Local replica: ${rsyncOptions.localReplica}`);
       this.logger.info(`S3 destination: ${s3Path}`);
