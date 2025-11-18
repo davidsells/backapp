@@ -21,13 +21,21 @@ const scheduleSchema = z.object({
   timezone: z.string().min(1, 'Timezone is required'),
 });
 
+const rsyncOptionsSchema = z.object({
+  localReplica: z.string().min(1, 'Local replica path is required'),
+  delete: z.boolean().optional(),
+  storageClass: z.enum(['STANDARD', 'STANDARD_IA', 'GLACIER', 'DEEP_ARCHIVE']).optional(),
+});
+
 const backupOptionsSchema = z.object({
+  method: z.enum(['archive', 'rsync']).optional().default('archive'),
   type: z.enum(['full', 'incremental']),
   compression: z.boolean(),
   compressionLevel: z.number().min(1).max(9).optional(),
   encryption: z.boolean(),
   retentionDays: z.number().min(1).optional(),
   bandwidth: z.number().optional(),
+  rsync: rsyncOptionsSchema.optional(),
 });
 
 const createConfigSchema = z.object({
