@@ -55,17 +55,20 @@ export class RsyncExecutor {
         throw new Error('AWS_S3_BUCKET environment variable not configured');
       }
 
+      // Validate that userId and agentId are present for path construction
+      if (!backupConfig.userId || !backupConfig.agentId) {
+        throw new Error('Backup configuration missing userId or agentId for S3 path construction');
+      }
+
       // Validate source paths exist
       this.validateSources(backupConfig.sources);
 
       // Ensure local replica directory exists
       this.ensureDirectory(rsyncOptions.localReplica);
 
-      // Generate S3 path with date tag
+      // Auto-generate S3 path: users/{userId}/agents/{agentId}/rsync/{YYYY-MM-DD}
       const dateTag = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-      const s3Prefix = rsyncOptions.s3Prefix
-        ? `${rsyncOptions.s3Prefix}/rsync/${dateTag}/`
-        : `rsync/${dateTag}/`;
+      const s3Prefix = `users/${backupConfig.userId}/agents/${backupConfig.agentId}/rsync/${dateTag}/`;
       const s3Path = `s3://${s3Bucket}/${s3Prefix}`;
 
       this.logger.info(`Local replica: ${rsyncOptions.localReplica}`);

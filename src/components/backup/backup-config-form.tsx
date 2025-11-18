@@ -40,7 +40,6 @@ interface FormData {
     rsync?: {
       localReplica: string;
       delete: boolean;
-      s3Prefix?: string;
       storageClass?: string;
     };
   };
@@ -81,7 +80,6 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
       rsync: initialData?.options?.rsync || {
         localReplica: '/tmp/backup-staging',
         delete: true,
-        s3Prefix: '',
         storageClass: 'STANDARD_IA',
       },
     },
@@ -537,8 +535,7 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
               <h4 className="font-semibold text-blue-900">Rsync Configuration</h4>
               <div className="p-3 bg-blue-100 border border-blue-300 rounded text-sm text-blue-900">
                 <strong>Shared Bucket Architecture:</strong> All backups use the S3 bucket configured in the application settings (AWS_S3_BUCKET).
-                Use the S3 Prefix field below to organize your backups by user and agent (e.g., users/john/agent-1).
-                The system automatically adds rsync/YYYY-MM-DD/ to create daily backup folders.
+                Backups are automatically organized by user and agent: AWS_S3_BUCKET/users/{userId}/agents/{agentId}/rsync/YYYY-MM-DD/
               </div>
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -554,7 +551,6 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
                           rsync: {
                             localReplica: e.target.value,
                             delete: formData.options.rsync?.delete ?? true,
-                            s3Prefix: formData.options.rsync?.s3Prefix,
                             storageClass: formData.options.rsync?.storageClass,
                           },
                         },
@@ -566,32 +562,7 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
                   <p className="text-xs text-gray-600">Where rsync will stage files locally before uploading to S3</p>
                 </div>
               </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="rsyncS3Prefix">S3 Prefix (User/Agent Path)</Label>
-                  <Input
-                    id="rsyncS3Prefix"
-                    value={formData.options.rsync?.s3Prefix || ''}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        options: {
-                          ...formData.options,
-                          rsync: {
-                            localReplica: formData.options.rsync?.localReplica ?? '',
-                            delete: formData.options.rsync?.delete ?? true,
-                            s3Prefix: e.target.value,
-                            storageClass: formData.options.rsync?.storageClass,
-                          },
-                        },
-                      })
-                    }
-                    placeholder="users/john/agent-1"
-                  />
-                  <p className="text-xs text-gray-600">
-                    Organizes backups by user/agent. Final path: AWS_S3_BUCKET/prefix/rsync/YYYY-MM-DD/
-                  </p>
-                </div>
+              <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="rsyncStorageClass">S3 Storage Class</Label>
                   <select
@@ -605,7 +576,6 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
                           rsync: {
                             localReplica: formData.options.rsync?.localReplica ?? '',
                             delete: formData.options.rsync?.delete ?? true,
-                            s3Prefix: formData.options.rsync?.s3Prefix,
                             storageClass: e.target.value,
                           },
                         },
@@ -618,6 +588,9 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
                     <option value="GLACIER">Glacier</option>
                     <option value="DEEP_ARCHIVE">Glacier Deep Archive</option>
                   </select>
+                  <p className="text-xs text-gray-600">
+                    Storage class is applied when files are uploaded to S3. Different backup configs can use different storage classes.
+                  </p>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
@@ -633,7 +606,6 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
                         rsync: {
                           localReplica: formData.options.rsync?.localReplica ?? '',
                           delete: e.target.checked,
-                          s3Prefix: formData.options.rsync?.s3Prefix,
                           storageClass: formData.options.rsync?.storageClass,
                         },
                       },

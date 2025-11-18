@@ -29,6 +29,8 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         name: true,
+        userId: true,
+        agentId: true,
         sources: true,
         destination: true,
         schedule: true,
@@ -65,6 +67,8 @@ export async function GET(request: NextRequest) {
       configs: configs.map((config: any) => ({
         id: config.id,
         name: config.name,
+        userId: config.userId,
+        agentId: config.agentId,
         sources: config.sources,
         destination: config.destination,
         schedule: config.schedule,

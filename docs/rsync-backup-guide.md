@@ -62,11 +62,9 @@ When creating a backup configuration with the Rsync method, you'll need to speci
 - **Local Staging Directory**: Where rsync will create a local replica (e.g., `/tmp/backup-staging`)
 - **Agent**: The agent that will execute the backup (must have rsync and AWS CLI installed)
 
-**Note**: The S3 bucket is configured globally in the application's environment settings (`AWS_S3_BUCKET`). All users and agents share this bucket, organizing their backups using the S3 Prefix field.
+**Note**: The S3 bucket is configured globally in the application's environment settings (`AWS_S3_BUCKET`). All users and agents share this bucket. The S3 path is automatically organized by user and agent: `users/{userId}/agents/{agentId}/rsync/{date}/`
 
 ### Optional Settings
-
-- **S3 Prefix**: Path prefix within the shared bucket for organizing backups by user/agent (e.g., "users/john/agent-1")
 - **Storage Class**: S3 storage class to use
   - `STANDARD`: Standard storage
   - `STANDARD_IA`: Infrequent Access (cost-effective for backups)
@@ -88,7 +86,7 @@ Default exclusions are automatically applied.
 
 ### Shared Bucket Architecture
 
-**Important**: The application uses a single S3 bucket configured via the `AWS_S3_BUCKET` environment variable. All users and agents share this bucket, organizing their backups using the S3 Prefix field in their backup configurations.
+**Important**: The application uses a single S3 bucket configured via the `AWS_S3_BUCKET` environment variable. All users and agents share this bucket, with backups automatically organized by user ID and agent ID.
 
 AWS S3 uses "object keys" (similar to file paths) to organize data, so there's no technical difference between using separate buckets or organizing data within a single bucket using prefixes.
 
@@ -97,36 +95,46 @@ AWS S3 uses "object keys" (similar to file paths) to organize data, so there's n
 - Centralized billing and monitoring
 - Easier to apply bucket-wide policies (encryption, versioning, lifecycle rules)
 - More cost-effective (no per-bucket overhead)
-- Users cannot accidentally misconfigure different buckets
+- Users cannot misconfigure paths - organization is automatic
 
-**Organization pattern:**
+**Automatic organization pattern:**
 ```
-s3://${AWS_S3_BUCKET}/{user-prefix}/{agent-prefix}/rsync/{YYYY-MM-DD}/
+s3://${AWS_S3_BUCKET}/users/{userId}/agents/{agentId}/rsync/{YYYY-MM-DD}/
 ```
+
+This structure ensures:
+- Each user's backups are isolated under `users/{userId}/`
+- Each agent's backups are separated under `agents/{agentId}/`
+- Daily snapshots are organized by date `rsync/{YYYY-MM-DD}/`
 
 ### Path Structure
 
-Backups are organized in S3 using the following structure:
+Backups are automatically organized in S3 using this structure:
 
 ```
-s3://${AWS_S3_BUCKET}/{prefix}/rsync/{YYYY-MM-DD}/
+s3://${AWS_S3_BUCKET}/users/{userId}/agents/{agentId}/rsync/{YYYY-MM-DD}/
 ```
 
-**Examples:**
+**Real-world examples:**
 
-If you don't specify a prefix:
+User ID `abc123` with agent ID `agent-xyz`:
 ```
-s3://${AWS_S3_BUCKET}/rsync/2025-11-18/
-```
-
-With user/agent organization (recommended):
-```
-s3://${AWS_S3_BUCKET}/users/john/agent-1/rsync/2025-11-18/
-s3://${AWS_S3_BUCKET}/users/john/agent-2/rsync/2025-11-18/
-s3://${AWS_S3_BUCKET}/users/jane/agent-1/rsync/2025-11-18/
+s3://${AWS_S3_BUCKET}/users/abc123/agents/agent-xyz/rsync/2025-11-18/
 ```
 
-Each date gets its own folder, making it easy to implement retention policies and manage backup versions.
+Multiple agents for the same user:
+```
+s3://${AWS_S3_BUCKET}/users/abc123/agents/agent-laptop/rsync/2025-11-18/
+s3://${AWS_S3_BUCKET}/users/abc123/agents/agent-desktop/rsync/2025-11-18/
+```
+
+Multiple users with their own agents:
+```
+s3://${AWS_S3_BUCKET}/users/abc123/agents/agent-laptop/rsync/2025-11-18/
+s3://${AWS_S3_BUCKET}/users/def456/agents/agent-server/rsync/2025-11-18/
+```
+
+Each date gets its own folder, making it easy to implement retention policies and manage backup versions. The userId and agentId are UUIDs automatically assigned by the system.
 
 ## Workflow Monitoring
 
@@ -154,40 +162,43 @@ Progress updates are sent via WebSocket and displayed in the UI.
 
 ## Example Use Cases
 
-### Use Case 1: External Drive Backup to S3
+### Use Case 1: Personal Photo Backup
 
 Backup an external drive to both a local directory and S3:
 
 - **Source**: `/Volumes/ExternalDrive/Photos`
 - **Local Staging**: `/Users/me/backups/photos-replica`
-- **S3 Prefix**: `personal/photos`
+- **Storage Class**: `STANDARD_IA`
 - **Mirror Deletions**: Enabled
 
-This configuration maintains a local replica on your machine and keeps a synchronized copy in the shared S3 bucket configured via `AWS_S3_BUCKET`.
+This configuration maintains a local replica on your machine and keeps a synchronized copy in the shared S3 bucket. The backup will automatically be stored at:
+```
+s3://${AWS_S3_BUCKET}/users/{your-user-id}/agents/{your-agent-id}/rsync/2025-11-18/
+```
 
 ### Use Case 2: Multi-User Organization
 
-Multiple users backing up to the shared bucket with organized prefixes:
+Multiple users backing up to the shared bucket with automatic organization:
 
-**User 1 Configuration:**
+**User 1 (ID: abc123) with Laptop Agent (ID: agent-laptop):**
 - **Source**: `/home/john/documents`
 - **Local Staging**: `/backup/john-staging`
-- **S3 Prefix**: `users/john/laptop`
 - **Storage Class**: `STANDARD_IA`
 - **Schedule**: Daily at 2 AM
 
-**User 2 Configuration:**
+**User 2 (ID: def456) with Desktop Agent (ID: agent-desktop):**
 - **Source**: `/home/jane/projects`
 - **Local Staging**: `/backup/jane-staging`
-- **S3 Prefix**: `users/jane/desktop`
-- **Storage Class**: `STANDARD_IA`
+- **Storage Class**: `GLACIER`
 - **Schedule**: Daily at 3 AM
 
-This configuration creates organized daily snapshots in the shared bucket (configured via `AWS_S3_BUCKET`):
-- `s3://${AWS_S3_BUCKET}/users/john/laptop/rsync/2025-11-18/`
-- `s3://${AWS_S3_BUCKET}/users/john/laptop/rsync/2025-11-19/`
-- `s3://${AWS_S3_BUCKET}/users/jane/desktop/rsync/2025-11-18/`
-- `s3://${AWS_S3_BUCKET}/users/jane/desktop/rsync/2025-11-19/`
+This configuration automatically creates organized daily snapshots in the shared bucket:
+- `s3://${AWS_S3_BUCKET}/users/abc123/agents/agent-laptop/rsync/2025-11-18/`
+- `s3://${AWS_S3_BUCKET}/users/abc123/agents/agent-laptop/rsync/2025-11-19/`
+- `s3://${AWS_S3_BUCKET}/users/def456/agents/agent-desktop/rsync/2025-11-18/`
+- `s3://${AWS_S3_BUCKET}/users/def456/agents/agent-desktop/rsync/2025-11-19/`
+
+Note how each user can choose different storage classes (STANDARD_IA vs GLACIER) for their backups.
 
 ## Lifecycle Management
 
