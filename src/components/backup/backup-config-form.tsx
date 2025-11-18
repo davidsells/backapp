@@ -548,7 +548,13 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
                         ...formData,
                         options: {
                           ...formData.options,
-                          rsync: { ...formData.options.rsync!, localReplica: e.target.value },
+                          rsync: {
+                            localReplica: e.target.value,
+                            delete: formData.options.rsync?.delete ?? true,
+                            s3Bucket: formData.options.rsync?.s3Bucket ?? '',
+                            s3Prefix: formData.options.rsync?.s3Prefix,
+                            storageClass: formData.options.rsync?.storageClass,
+                          },
                         },
                       })
                     }
@@ -567,7 +573,13 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
                         ...formData,
                         options: {
                           ...formData.options,
-                          rsync: { ...formData.options.rsync!, s3Bucket: e.target.value },
+                          rsync: {
+                            localReplica: formData.options.rsync?.localReplica ?? '',
+                            delete: formData.options.rsync?.delete ?? true,
+                            s3Bucket: e.target.value,
+                            s3Prefix: formData.options.rsync?.s3Prefix,
+                            storageClass: formData.options.rsync?.storageClass,
+                          },
                         },
                       })
                     }
@@ -587,7 +599,13 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
                         ...formData,
                         options: {
                           ...formData.options,
-                          rsync: { ...formData.options.rsync!, s3Prefix: e.target.value },
+                          rsync: {
+                            localReplica: formData.options.rsync?.localReplica ?? '',
+                            delete: formData.options.rsync?.delete ?? true,
+                            s3Bucket: formData.options.rsync?.s3Bucket ?? '',
+                            s3Prefix: e.target.value,
+                            storageClass: formData.options.rsync?.storageClass,
+                          },
                         },
                       })
                     }
@@ -604,7 +622,13 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
                         ...formData,
                         options: {
                           ...formData.options,
-                          rsync: { ...formData.options.rsync!, storageClass: e.target.value },
+                          rsync: {
+                            localReplica: formData.options.rsync?.localReplica ?? '',
+                            delete: formData.options.rsync?.delete ?? true,
+                            s3Bucket: formData.options.rsync?.s3Bucket ?? '',
+                            s3Prefix: formData.options.rsync?.s3Prefix,
+                            storageClass: e.target.value,
+                          },
                         },
                       })
                     }
@@ -627,7 +651,13 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
                       ...formData,
                       options: {
                         ...formData.options,
-                        rsync: { ...formData.options.rsync!, delete: e.target.checked },
+                        rsync: {
+                          localReplica: formData.options.rsync?.localReplica ?? '',
+                          delete: e.target.checked,
+                          s3Bucket: formData.options.rsync?.s3Bucket ?? '',
+                          s3Prefix: formData.options.rsync?.s3Prefix,
+                          storageClass: formData.options.rsync?.storageClass,
+                        },
                       },
                     })
                   }

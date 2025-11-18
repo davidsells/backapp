@@ -19,7 +19,7 @@ export interface ScheduleConfig {
 }
 
 export interface BackupOptions {
-  method: 'archive' | 'rsync'; // Backup method: tar.gz archive or rsync
+  method?: 'archive' | 'rsync'; // Backup method: tar.gz archive or rsync (defaults to 'archive')
   type: 'full' | 'incremental';
   compression: boolean;
   compressionLevel?: number;
