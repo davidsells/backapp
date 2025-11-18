@@ -47,6 +47,12 @@ export interface BackupConfig {
   updatedAt: Date;
 }
 
+export interface BackupConfigWithAgent extends BackupConfig {
+  agent?: Agent | null;
+  executionMode: ExecutionMode;
+  agentId?: string | null;
+}
+
 export interface BackupProgress {
   filesProcessed: number;
   filesSkipped: number;
