@@ -60,12 +60,12 @@ When creating a backup configuration with the Rsync method, you'll need to speci
 - **Backup Method**: Select "Rsync + S3" from the dropdown
 - **Source Paths**: One or more directories to backup
 - **Local Staging Directory**: Where rsync will create a local replica (e.g., `/tmp/backup-staging`)
-- **S3 Bucket**: The target S3 bucket name
+- **S3 Bucket**: The target S3 bucket name (can be shared across multiple users/agents)
 - **Agent**: The agent that will execute the backup (must have rsync and AWS CLI installed)
 
 ### Optional Settings
 
-- **S3 Prefix**: Path prefix within the bucket (default: "rsync-backups")
+- **S3 Prefix**: Path prefix within the bucket for organizing backups by user/agent (e.g., "users/john/agent-1")
 - **Storage Class**: S3 storage class to use
   - `STANDARD`: Standard storage
   - `STANDARD_IA`: Infrequent Access (cost-effective for backups)
@@ -85,15 +85,41 @@ Default exclusions are automatically applied.
 
 ## Backup Structure
 
+### Shared Bucket Architecture
+
+**Important**: Multiple users and agents can share a single S3 bucket. AWS S3 uses "object keys" (similar to file paths) to organize data, so there's no technical difference between using separate buckets or organizing data within a single bucket using prefixes.
+
+**Benefits of a shared bucket:**
+- Simplified AWS account management
+- Centralized billing and monitoring
+- Easier to apply bucket-wide policies (encryption, versioning, lifecycle rules)
+- More cost-effective (no per-bucket overhead)
+
+**Organization pattern:**
+```
+s3://{bucket}/{user-prefix}/{agent-prefix}/rsync/{YYYY-MM-DD}/
+```
+
+### Path Structure
+
 Backups are organized in S3 using the following structure:
 
 ```
 s3://{bucket}/{prefix}/rsync/{YYYY-MM-DD}/
 ```
 
-For example:
+**Examples:**
+
+Single user, single agent:
 ```
 s3://my-backups/rsync-backups/rsync/2025-11-18/
+```
+
+Multi-user, multi-agent (recommended):
+```
+s3://shared-backups/users/john/agent-1/rsync/2025-11-18/
+s3://shared-backups/users/john/agent-2/rsync/2025-11-18/
+s3://shared-backups/users/jane/agent-1/rsync/2025-11-18/
 ```
 
 Each date gets its own folder, making it easy to implement retention policies and manage backup versions.
@@ -136,20 +162,31 @@ Backup an external drive to both a local directory and S3:
 
 This configuration maintains a local replica on your machine and keeps a synchronized copy in S3.
 
-### Use Case 2: Server Data Backup
+### Use Case 2: Multi-User Server Backup (Shared Bucket)
 
-Backup server data with daily snapshots:
+Backup multiple users' data to a shared company bucket:
 
-- **Source**: `/var/www/data`
-- **Local Staging**: `/backup/www-staging`
-- **S3 Bucket**: `company-backups`
-- **S3 Prefix**: `www-data`
+**User 1 Configuration:**
+- **Source**: `/home/john/documents`
+- **Local Staging**: `/backup/john-staging`
+- **S3 Bucket**: `company-backups` (shared)
+- **S3 Prefix**: `users/john/laptop`
 - **Storage Class**: `STANDARD_IA`
 - **Schedule**: Daily at 2 AM
 
-This configuration creates daily snapshots in S3 under paths like:
-- `s3://company-backups/www-data/rsync/2025-11-18/`
-- `s3://company-backups/www-data/rsync/2025-11-19/`
+**User 2 Configuration:**
+- **Source**: `/home/jane/projects`
+- **Local Staging**: `/backup/jane-staging`
+- **S3 Bucket**: `company-backups` (shared)
+- **S3 Prefix**: `users/jane/desktop`
+- **Storage Class**: `STANDARD_IA`
+- **Schedule**: Daily at 3 AM
+
+This configuration creates organized daily snapshots in the shared bucket:
+- `s3://company-backups/users/john/laptop/rsync/2025-11-18/`
+- `s3://company-backups/users/john/laptop/rsync/2025-11-19/`
+- `s3://company-backups/users/jane/desktop/rsync/2025-11-18/`
+- `s3://company-backups/users/jane/desktop/rsync/2025-11-19/`
 
 ## Lifecycle Management
 

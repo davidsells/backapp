@@ -537,6 +537,11 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
           {formData.options.method === 'rsync' && (
             <div className="space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
               <h4 className="font-semibold text-blue-900">Rsync Configuration</h4>
+              <div className="p-3 bg-blue-100 border border-blue-300 rounded text-sm text-blue-900">
+                <strong>Shared Bucket Architecture:</strong> Multiple users and agents can share a single S3 bucket.
+                Use the S3 Prefix field to organize backups by user and agent (e.g., users/john/agent-1).
+                The system automatically adds rsync/YYYY-MM-DD/ to create daily backup folders.
+              </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="rsyncLocalReplica">Local Staging Directory</Label>
@@ -564,7 +569,7 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
                   <p className="text-xs text-gray-600">Where rsync will stage files locally</p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="rsyncS3Bucket">S3 Bucket</Label>
+                  <Label htmlFor="rsyncS3Bucket">S3 Bucket (Shared)</Label>
                   <Input
                     id="rsyncS3Bucket"
                     value={formData.options.rsync?.s3Bucket || ''}
@@ -583,14 +588,17 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
                         },
                       })
                     }
-                    placeholder="my-backup-bucket"
+                    placeholder="my-shared-backup-bucket"
                     required={formData.options.method === 'rsync'}
                   />
+                  <p className="text-xs text-gray-600">
+                    Can be shared across users - use S3 Prefix below to organize by user/agent
+                  </p>
                 </div>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="rsyncS3Prefix">S3 Prefix (Optional)</Label>
+                  <Label htmlFor="rsyncS3Prefix">S3 Prefix (User/Agent Path)</Label>
                   <Input
                     id="rsyncS3Prefix"
                     value={formData.options.rsync?.s3Prefix || ''}
@@ -609,8 +617,11 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
                         },
                       })
                     }
-                    placeholder="rsync-backups"
+                    placeholder="users/john/agent-1"
                   />
+                  <p className="text-xs text-gray-600">
+                    Organizes backups by user/agent. Final path: bucket/prefix/rsync/YYYY-MM-DD/
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="rsyncStorageClass">S3 Storage Class</Label>
