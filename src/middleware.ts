@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 
 // Middleware function for auth and route protection
 // Will be expanded in Phase 2
-export function middleware(request: NextRequest) {
+export function middleware(_request: NextRequest) {
   // Add security headers
   const response = NextResponse.next();
 
