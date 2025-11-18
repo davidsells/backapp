@@ -17,12 +17,21 @@ export interface ScheduleConfig {
 }
 
 export interface BackupOptions {
+  method: 'archive' | 'rsync'; // Backup method: tar.gz archive or rsync
   type: 'full' | 'incremental';
   compression: boolean;
   compressionLevel?: number;
   encryption: boolean;
   retentionDays?: number;
   bandwidth?: number; // KB/s
+  // Rsync-specific options
+  rsync?: {
+    localReplica: string; // Local staging directory for rsync
+    delete: boolean; // Mirror deletions (--delete flag)
+    s3Bucket: string; // S3 bucket for final storage
+    s3Prefix?: string; // Optional S3 prefix/path
+    storageClass?: string; // S3 storage class (STANDARD_IA, etc.)
+  };
 }
 
 export interface BackupConfig {
@@ -66,4 +75,15 @@ export interface BackupResult {
 export interface ValidationResult {
   valid: boolean;
   errors?: string[];
+}
+
+export type ExecutionMode = 'server' | 'agent';
+
+export interface Agent {
+  id: string;
+  name: string;
+  status: string;
+  platform?: string;
+  version?: string;
+  lastSeen?: Date;
 }

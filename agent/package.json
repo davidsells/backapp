@@ -1,0 +1,27 @@
+{
+  "name": "backapp-agent",
+  "version": "1.0.0",
+  "description": "BackApp backup agent for client-side backup execution",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "backup": "node src/index.js",
+    "daemon": "node src/daemon.js",
+    "install-service": "node -e \"console.log('Run install script: services/macos/install.sh or services/linux/install.sh')\"",
+    "uninstall-service": "node -e \"console.log('Run uninstall script: services/macos/uninstall.sh or services/linux/uninstall.sh')\""
+  },
+  "keywords": [
+    "backup",
+    "s3",
+    "agent"
+  ],
+  "author": "BackApp",
+  "license": "MIT",
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "axios": "^1.7.2",
+    "cron-parser": "^4.9.0",
+    "ws": "^8.18.3"
+  }
+}
