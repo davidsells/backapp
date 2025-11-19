@@ -6,6 +6,21 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Seeding database...');
 
+  // Create app settings with registration enabled
+  const appSettings = await prisma.appSettings.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      registrationEnabled: true,
+      userApprovalRequired: false,
+    },
+  });
+
+  console.log('✅ Created app settings:', {
+    registrationEnabled: appSettings.registrationEnabled,
+    userApprovalRequired: appSettings.userApprovalRequired,
+  });
+
   // Create a test user
   const passwordHash = await bcrypt.hash('password123', 10);
 
