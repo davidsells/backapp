@@ -29,10 +29,8 @@ export interface BackupOptions {
   // Rsync-specific options
   rsync?: {
     localReplica: string; // Local staging directory for rsync
-    delete: boolean; // Mirror deletions (--delete flag)
-    s3Bucket: string; // S3 bucket for final storage
-    s3Prefix?: string; // Optional S3 prefix/path
-    storageClass?: string; // S3 storage class (STANDARD_IA, etc.)
+    delete?: boolean; // Mirror deletions (--delete flag)
+    storageClass?: string; // S3 storage class (STANDARD_IA, GLACIER, etc.)
   };
 }
 
