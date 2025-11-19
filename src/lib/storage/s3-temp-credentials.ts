@@ -15,8 +15,8 @@ export interface TempAWSCredentials {
  * Credentials are scoped to a specific S3 prefix path
  */
 export async function generateTempS3Credentials(
-  userId: string,
-  agentId: string,
+  _userId: string,
+  _agentId: string,
   durationSeconds: number = 3600 // 1 hour default
 ): Promise<TempAWSCredentials> {
   const bucket = process.env.AWS_S3_BUCKET;
