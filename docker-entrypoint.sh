@@ -9,8 +9,7 @@ max_attempts=30
 attempt=0
 
 while [ $attempt -lt $max_attempts ]; do
-  if npx prisma db push --skip-generate --accept-data-loss 2>/dev/null || \
-     psql "$DATABASE_URL" -c '\q' 2>/dev/null; then
+  if psql "$DATABASE_URL" -c '\q' 2>/dev/null; then
     echo "PostgreSQL is ready!"
     break
   fi
