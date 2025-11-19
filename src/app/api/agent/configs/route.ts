@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAgentAuth, updateAgentLastSeen } from '@/lib/agent/agent-auth';
 import { prisma } from '@/lib/db/prisma';
+import { generateTempS3Credentials } from '@/lib/storage/s3-temp-credentials';
 
 /**
  * GET /api/agent/configs
@@ -62,22 +63,42 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Generate temporary AWS credentials for rsync backups
+    const configsWithCredentials = await Promise.all(
+      configs.map(async (config: any) => {
+        const configData: any = {
+          id: config.id,
+          name: config.name,
+          userId: config.userId,
+          agentId: config.agentId,
+          sources: config.sources,
+          destination: config.destination,
+          schedule: config.schedule,
+          options: config.options,
+          requestedAt: config.requestedAt,
+          lastRunAt: config.lastRunAt,
+          createdAt: config.createdAt,
+          updatedAt: config.updatedAt,
+        };
+
+        // If this is an rsync backup, include temporary AWS credentials
+        if (config.options?.method === 'rsync') {
+          try {
+            const credentials = await generateTempS3Credentials(config.userId, config.agentId);
+            configData.awsCredentials = credentials;
+          } catch (error) {
+            console.error('[API] Failed to generate temp credentials:', error);
+            // Continue without credentials - will fail at agent level with better error
+          }
+        }
+
+        return configData;
+      })
+    );
+
     return NextResponse.json({
       success: true,
-      configs: configs.map((config: any) => ({
-        id: config.id,
-        name: config.name,
-        userId: config.userId,
-        agentId: config.agentId,
-        sources: config.sources,
-        destination: config.destination,
-        schedule: config.schedule,
-        options: config.options,
-        requestedAt: config.requestedAt,
-        lastRunAt: config.lastRunAt,
-        createdAt: config.createdAt,
-        updatedAt: config.updatedAt,
-      })),
+      configs: configsWithCredentials,
     });
   } catch (error) {
     console.error('[API] Failed to fetch agent configs:', error);

@@ -49,10 +49,17 @@ export class RsyncExecutor {
         throw new Error('Local replica path not configured');
       }
 
-      // Get S3 bucket from environment variable (shared across all users/agents)
-      const s3Bucket = process.env.AWS_S3_BUCKET;
+      // Get AWS credentials from config (provided by server)
+      const awsCredentials = backupConfig.awsCredentials;
+      if (!awsCredentials) {
+        throw new Error('AWS credentials not provided by server. Server must send temporary credentials for rsync backups.');
+      }
+
+      const s3Bucket = awsCredentials.bucket;
+      const awsRegion = awsCredentials.region;
+
       if (!s3Bucket) {
-        throw new Error('AWS_S3_BUCKET environment variable not configured');
+        throw new Error('S3 bucket not configured in server credentials');
       }
 
       // Validate that userId and agentId are present for path construction
@@ -338,7 +345,27 @@ export class RsyncExecutor {
 
       this.logger.debug(`Executing: aws ${args.join(' ')}`);
 
-      const awsProcess = spawn('aws', args);
+      // Set AWS credentials from backupConfig (provided by server)
+      const env = {
+        ...process.env,
+      };
+
+      if (backupConfig?.awsCredentials) {
+        env.AWS_ACCESS_KEY_ID = backupConfig.awsCredentials.accessKeyId;
+        env.AWS_SECRET_ACCESS_KEY = backupConfig.awsCredentials.secretAccessKey;
+        env.AWS_DEFAULT_REGION = backupConfig.awsCredentials.region;
+
+        // Only set session token if it exists (not all credentials have it)
+        if (backupConfig.awsCredentials.sessionToken) {
+          env.AWS_SESSION_TOKEN = backupConfig.awsCredentials.sessionToken;
+        }
+
+        this.logger.debug(`Using temporary credentials for S3 upload (expires: ${backupConfig.awsCredentials.expiration})`);
+      } else {
+        this.logger.warn('No AWS credentials provided in backupConfig, attempting with environment credentials');
+      }
+
+      const awsProcess = spawn('aws', args, { env });
       let stdout = '';
       let stderr = '';
 
