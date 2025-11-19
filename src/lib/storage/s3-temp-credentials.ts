@@ -1,4 +1,5 @@
-import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts';
+// TODO: Import STS client when implementing proper AssumeRole
+// import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts';
 
 export interface TempAWSCredentials {
   accessKeyId: string;
