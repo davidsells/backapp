@@ -7,19 +7,23 @@ async function main() {
   console.log('🌱 Seeding database...');
 
   // Create app settings with registration enabled
-  const appSettings = await prisma.appSettings.upsert({
-    where: { id: 1 },
-    update: {},
-    create: {
-      registrationEnabled: true,
-      userApprovalRequired: false,
-    },
-  });
+  // First check if settings already exist
+  let appSettings = await prisma.appSettings.findFirst();
 
-  console.log('✅ Created app settings:', {
-    registrationEnabled: appSettings.registrationEnabled,
-    userApprovalRequired: appSettings.userApprovalRequired,
-  });
+  if (!appSettings) {
+    appSettings = await prisma.appSettings.create({
+      data: {
+        registrationEnabled: true,
+        requireApproval: false,
+      },
+    });
+    console.log('✅ Created app settings:', {
+      registrationEnabled: appSettings.registrationEnabled,
+      requireApproval: appSettings.requireApproval,
+    });
+  } else {
+    console.log('✅ App settings already exist');
+  }
 
   // Create a test user
   const passwordHash = await bcrypt.hash('password123', 10);
