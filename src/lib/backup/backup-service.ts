@@ -81,6 +81,17 @@ export class BackupService {
   async listConfigs(userId: string): Promise<BackupConfig[]> {
     const configs = await prisma.backupConfig.findMany({
       where: { userId },
+      include: {
+        agent: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            platform: true,
+            lastSeen: true,
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
 
