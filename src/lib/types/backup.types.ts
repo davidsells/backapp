@@ -34,6 +34,15 @@ export interface BackupOptions {
   };
 }
 
+// Agent types for backup configuration
+export interface Agent {
+  id: string;
+  name: string;
+  status: 'online' | 'offline' | 'error';
+  platform?: string;
+  lastSeen?: Date | null;
+}
+
 export interface BackupConfig {
   id: string;
   userId: string;
@@ -41,6 +50,7 @@ export interface BackupConfig {
   enabled: boolean;
   executionMode: ExecutionMode;
   agentId?: string | null;
+  agent?: Agent | null; // Populated when config is fetched with agent data
   sources: BackupSource[];
   destination: S3Destination;
   schedule?: ScheduleConfig | null;
@@ -79,15 +89,6 @@ export interface BackupResult {
 export interface ValidationResult {
   valid: boolean;
   errors?: string[];
-}
-
-// Agent types for backup configuration
-export interface Agent {
-  id: string;
-  name: string;
-  status: 'online' | 'offline' | 'error';
-  platform?: string;
-  lastSeen?: Date | null;
 }
 
 export interface BackupConfigWithAgent extends BackupConfig {
