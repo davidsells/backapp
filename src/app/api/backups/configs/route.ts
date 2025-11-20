@@ -77,6 +77,13 @@ export async function GET() {
       orderBy: { createdAt: 'desc' },
     });
 
+    // Debug logging for agent not found issue
+    configsWithAgents.forEach(config => {
+      if (config.executionMode === 'agent' && config.agentId && !config.agent) {
+        console.warn(`[API] Config "${config.name}" (${config.id}) references non-existent agent: ${config.agentId}`);
+      }
+    });
+
     return NextResponse.json({ success: true, configs: configsWithAgents });
   } catch (error) {
     console.error('Failed to list backup configs:', error);

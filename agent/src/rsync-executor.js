@@ -82,9 +82,10 @@ export class RsyncExecutor {
       // Ensure local replica directory exists
       this.ensureDirectory(rsyncOptions.localReplica);
 
-      // Auto-generate S3 path: users/{userId}/agents/{agentId}/rsync/{YYYY-MM-DD}
+      // Auto-generate S3 path: users/{userId}/agents/{agentId}/configs/{configId}/rsync/{YYYY-MM-DD}
+      // Include configId to prevent multiple rsync configs from overwriting each other
       const dateTag = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-      const s3Prefix = `users/${backupConfig.userId}/agents/${backupConfig.agentId}/rsync/${dateTag}/`;
+      const s3Prefix = `users/${backupConfig.userId}/agents/${backupConfig.agentId}/configs/${backupConfig.id}/rsync/${dateTag}/`;
       const s3Path = `s3://${s3Bucket}/${s3Prefix}`;
 
       this.logger.info(`Local replica: ${rsyncOptions.localReplica}`);

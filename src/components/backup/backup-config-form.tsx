@@ -535,7 +535,7 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
               <h4 className="font-semibold text-blue-900">Rsync Configuration</h4>
               <div className="p-3 bg-blue-100 border border-blue-300 rounded text-sm text-blue-900">
                 <strong>Shared Bucket Architecture:</strong> All backups use the S3 bucket configured in the application settings (AWS_S3_BUCKET).
-                Backups are automatically organized by user and agent: AWS_S3_BUCKET/users/{'userId'}/agents/{'agentId'}/rsync/YYYY-MM-DD/
+                Backups are automatically organized by user, agent, and config: AWS_S3_BUCKET/users/{'userId'}/agents/{'agentId'}/configs/{'configId'}/rsync/YYYY-MM-DD/
               </div>
               <div className="space-y-4">
                 <div className="space-y-2">
