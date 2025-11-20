@@ -40,6 +40,15 @@ export class RsyncExecutor {
     const rsyncOptions = backupConfig.options?.rsync;
 
     try {
+      // Step 0: Create backup log entry on server
+      this.logger.info('Creating backup log entry...');
+      const startResponse = await this.apiClient.startBackup(
+        backupConfig.id,
+        `rsync-${new Date().toISOString().slice(0, 10)}.log` // Dummy filename for rsync
+      );
+      logId = startResponse.logId;
+      this.logger.info(`Backup log created: ${logId}`);
+
       // Validate rsync configuration
       if (!rsyncOptions) {
         throw new Error('Rsync options not configured');
@@ -124,23 +133,20 @@ export class RsyncExecutor {
 
       this.logger.info('S3 upload complete');
 
-      // Report to server
+      // Report completion to server
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
-      // Create a simple log entry (no pre-signed URL needed for rsync)
-      const logResponse = await retryWithBackoff(
-        () => this.apiClient.post('/api/agent/log', {
-          configId: backupConfig.id,
-          status: 'completed',
-          filesProcessed: rsyncStats.filesTransferred,
-          totalBytes: rsyncStats.totalSize,
-          s3Path: s3Path,
-          duration: parseFloat(duration)
-        }),
+      await retryWithBackoff(
+        () => this.apiClient.completeBackup(
+          logId,
+          true, // success
+          null, // no error
+          rsyncStats.totalSize
+        ),
         {
           ...this.retryConfig,
           onRetry: (attempt, error, delay) => {
-            this.logger.warn(`Retry ${attempt}/${this.retryConfig.maxAttempts} for logging after ${(delay/1000).toFixed(1)}s: ${error.message}`);
+            this.logger.warn(`Retry ${attempt}/${this.retryConfig.maxAttempts} for completeBackup after ${(delay/1000).toFixed(1)}s: ${error.message}`);
           },
         }
       );
