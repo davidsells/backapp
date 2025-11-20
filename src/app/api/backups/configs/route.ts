@@ -78,7 +78,7 @@ export async function GET() {
     });
 
     // Debug logging for agent not found issue
-    configsWithAgents.forEach(config => {
+    configsWithAgents.forEach((config: any) => {
       if (config.executionMode === 'agent' && config.agentId && !config.agent) {
         console.warn(`[API] Config "${config.name}" (${config.id}) references non-existent agent: ${config.agentId}`);
       }
