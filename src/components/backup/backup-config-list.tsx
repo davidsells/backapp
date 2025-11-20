@@ -13,6 +13,7 @@ interface BackupConfigListProps {
 export function BackupConfigList({ configs }: BackupConfigListProps) {
   const router = useRouter();
   const [runningBackups, setRunningBackups] = useState<Set<string>>(new Set());
+  const [deletingConfigs, setDeletingConfigs] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
 
@@ -50,6 +51,44 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
       setError('Failed to request backup');
     } finally {
       setRunningBackups(prev => {
+        const next = new Set(prev);
+        next.delete(configId);
+        return next;
+      });
+    }
+  };
+
+  const deleteConfig = async (configId: string, configName: string) => {
+    // Confirm deletion
+    const confirmed = window.confirm(
+      `Are you sure you want to delete the backup configuration "${configName}"? This action cannot be undone.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setError('');
+    setSuccess('');
+    setDeletingConfigs(prev => new Set(prev).add(configId));
+
+    try {
+      const res = await fetch(`/api/backups/configs?id=${configId}`, {
+        method: 'DELETE',
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setSuccess(`Backup configuration "${configName}" deleted successfully!`);
+        router.refresh();
+      } else {
+        setError(data.error || 'Failed to delete backup configuration');
+      }
+    } catch (err) {
+      setError('Failed to delete backup configuration');
+    } finally {
+      setDeletingConfigs(prev => {
         const next = new Set(prev);
         next.delete(configId);
         return next;
@@ -148,6 +187,7 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
 
       {configs.map((config) => {
         const isRunning = runningBackups.has(config.id);
+        const isDeleting = deletingConfigs.has(config.id);
 
         return (
           <div
@@ -254,7 +294,7 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
             <div className="flex gap-2 ml-4">
               <Button
                 onClick={() => triggerBackup(config.id, config.name, config.executionMode)}
-                disabled={isRunning}
+                disabled={isRunning || isDeleting}
                 size="sm"
                 variant="default"
                 title={
@@ -266,15 +306,24 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
                 {isRunning ? 'Requesting...' : 'Run Now'}
               </Button>
               <Link href={`/configs/${config.id}`}>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" disabled={isDeleting}>
                   View
                 </Button>
               </Link>
               <Link href={`/configs/${config.id}/edit`}>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" disabled={isDeleting}>
                   Edit
                 </Button>
               </Link>
+              <Button
+                onClick={() => deleteConfig(config.id, config.name)}
+                disabled={isDeleting}
+                size="sm"
+                variant="destructive"
+                title="Delete this backup configuration"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </Button>
             </div>
           </div>
         );

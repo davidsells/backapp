@@ -198,3 +198,47 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+/**
+ * DELETE /api/backups/configs - Delete a backup configuration
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const configId = searchParams.get('id');
+
+    if (!configId) {
+      return NextResponse.json(
+        { success: false, error: 'Configuration ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const backupService = getBackupService();
+
+    // Verify config exists and belongs to user before deleting
+    const config = await backupService.getConfig(configId, session.user.id);
+    if (!config) {
+      return NextResponse.json(
+        { success: false, error: 'Configuration not found' },
+        { status: 404 }
+      );
+    }
+
+    await backupService.deleteConfig(configId, session.user.id);
+
+    return NextResponse.json({ success: true }, { status: 200 });
+  } catch (error) {
+    console.error('Failed to delete backup config:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to delete backup configuration';
+    return NextResponse.json(
+      { success: false, error: errorMessage },
+      { status: 500 }
+    );
+  }
+}
