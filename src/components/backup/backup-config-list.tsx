@@ -238,9 +238,15 @@ export function BackupConfigList({ configs }: BackupConfigListProps) {
                 </div>
               )}
 
-              {config.executionMode === 'agent' && !config.agent && (
+              {config.executionMode === 'agent' && !config.agentId && (
+                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-3 py-2 rounded text-sm">
+                  ⚠️ No agent assigned. Please assign an agent in configuration.
+                </div>
+              )}
+
+              {config.executionMode === 'agent' && config.agentId && !config.agent && (
                 <div className="bg-red-50 border border-red-200 text-red-800 px-3 py-2 rounded text-sm">
-                  ❌ Agent not found. Please update configuration.
+                  ❌ Agent not found. The assigned agent may have been deleted. Please update configuration.
                 </div>
               )}
             </div>

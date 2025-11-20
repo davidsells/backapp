@@ -66,6 +66,9 @@ export async function GET(request: NextRequest) {
     // Generate temporary AWS credentials for rsync backups
     const configsWithCredentials = await Promise.all(
       configs.map(async (config: any) => {
+        // Use null for requestedAt if this config was just cleared
+        const wasCleared = requestedConfigIds.includes(config.id);
+
         const configData: any = {
           id: config.id,
           name: config.name,
@@ -75,7 +78,7 @@ export async function GET(request: NextRequest) {
           destination: config.destination,
           schedule: config.schedule,
           options: config.options,
-          requestedAt: config.requestedAt,
+          requestedAt: wasCleared ? null : config.requestedAt,
           lastRunAt: config.lastRunAt,
           createdAt: config.createdAt,
           updatedAt: config.updatedAt,
