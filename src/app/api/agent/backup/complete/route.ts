@@ -86,11 +86,12 @@ export async function POST(request: NextRequest) {
           errors: errors && errors.length > 0 ? (errors as any) : null,
         },
       }),
-      // Update the backup config's lastRunAt timestamp
+      // Update the backup config's lastRunAt timestamp and clear requestedAt
       prisma.backupConfig.update({
         where: { id: log.configId },
         data: {
           lastRunAt: now,
+          requestedAt: null, // Clear the manual request flag
         },
       }),
     ]);

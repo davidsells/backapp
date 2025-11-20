@@ -46,29 +46,12 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Mark configs with pending requests as "picked up" by clearing requestedAt
-    // This prevents the agent from running the same backup multiple times
-    const requestedConfigIds = configs
-      .filter((c: any) => c.requestedAt !== null)
-      .map((c: any) => c.id);
-
-    if (requestedConfigIds.length > 0) {
-      await prisma.backupConfig.updateMany({
-        where: {
-          id: { in: requestedConfigIds },
-        },
-        data: {
-          requestedAt: null, // Clear the request flag
-        },
-      });
-    }
+    // NOTE: Do NOT clear requestedAt here. The agent needs to see it to know a backup was requested.
+    // requestedAt will be cleared when the agent reports backup completion via /api/agent/log
 
     // Generate temporary AWS credentials for rsync backups
     const configsWithCredentials = await Promise.all(
       configs.map(async (config: any) => {
-        // Use null for requestedAt if this config was just cleared
-        const wasCleared = requestedConfigIds.includes(config.id);
-
         const configData: any = {
           id: config.id,
           name: config.name,
@@ -78,7 +61,7 @@ export async function GET(request: NextRequest) {
           destination: config.destination,
           schedule: config.schedule,
           options: config.options,
-          requestedAt: wasCleared ? null : config.requestedAt,
+          requestedAt: config.requestedAt,
           lastRunAt: config.lastRunAt,
           createdAt: config.createdAt,
           updatedAt: config.updatedAt,
