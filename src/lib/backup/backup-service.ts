@@ -341,10 +341,13 @@ export class BackupService {
       enabled: config.enabled,
       executionMode: config.executionMode || 'server',
       agentId: config.agentId || null,
+      agent: config.agent || null, // Include agent data if present
       sources: config.sources as unknown as BackupSource[],
       destination: config.destination as unknown as S3Destination,
       schedule: config.schedule ? (config.schedule as unknown as ScheduleConfig) : null,
       options: config.options as unknown as BackupOptions,
+      requestedAt: config.requestedAt || null,
+      lastRunAt: config.lastRunAt || null,
       createdAt: config.createdAt,
       updatedAt: config.updatedAt,
     };
