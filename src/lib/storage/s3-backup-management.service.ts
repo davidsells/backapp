@@ -171,9 +171,18 @@ export class S3BackupManagementService {
 
   /**
    * Parse S3 objects into BackupFile format
+   * Filters to only show archive files (.tar.gz), excluding rsync individual files
    */
   private parseBackupFiles(objects: S3Object[]): BackupFile[] {
-    return objects.map(obj => {
+    // Filter out rsync individual files - only show .tar.gz archives
+    const archiveFiles = objects.filter(obj => {
+      const filename = obj.key.split('/').pop() || '';
+      // Only show .tar.gz files (archive backups)
+      // Exclude rsync directories and individual synced files
+      return filename.endsWith('.tar.gz');
+    });
+
+    return archiveFiles.map(obj => {
       // Extract configId from path: users/{userId}/agents/{agentId}/configs/{configId}/filename
       const pathParts = obj.key.split('/');
       const configsIndex = pathParts.indexOf('configs');
