@@ -148,12 +148,18 @@ export class ApiClient {
    */
   async reportSize(requestId, totalBytes, totalFiles, error = null) {
     try {
-      const response = await this.client.post('/api/agent/size-assessment', {
+      const payload = {
         requestId,
         totalBytes,
         totalFiles,
-        error,
-      });
+      };
+
+      // Only include error field if it has a value
+      if (error) {
+        payload.error = error;
+      }
+
+      const response = await this.client.post('/api/agent/size-assessment', payload);
       return response.data;
     } catch (error) {
       throw new Error(`Failed to report size: ${error.message}`);

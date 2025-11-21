@@ -7,7 +7,7 @@ const reportSizeSchema = z.object({
   requestId: z.string(),
   totalBytes: z.number(),
   totalFiles: z.number(),
-  error: z.string().optional(),
+  error: z.string().optional().nullable(),
 });
 
 /**
