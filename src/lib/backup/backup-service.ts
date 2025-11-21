@@ -190,18 +190,25 @@ export class BackupService {
    * Get backup logs for a configuration
    */
   async getConfigLogs(configId: string, userId: string, limit = 50) {
-    return prisma.backupLog.findMany({
+    const logs = await prisma.backupLog.findMany({
       where: { configId, userId },
       orderBy: { startTime: 'desc' },
       take: limit,
     });
+
+    // Convert BigInt values to numbers for JSON serialization
+    return logs.map((log: any) => ({
+      ...log,
+      totalBytes: Number(log.totalBytes),
+      bytesTransferred: Number(log.bytesTransferred),
+    }));
   }
 
   /**
    * Get recent backup logs for user
    */
   async getRecentLogs(userId: string, limit = 20) {
-    return prisma.backupLog.findMany({
+    const logs = await prisma.backupLog.findMany({
       where: { userId },
       include: {
         config: {
@@ -211,6 +218,13 @@ export class BackupService {
       orderBy: { startTime: 'desc' },
       take: limit,
     });
+
+    // Convert BigInt values to numbers for JSON serialization
+    return logs.map((log: any) => ({
+      ...log,
+      totalBytes: Number(log.totalBytes),
+      bytesTransferred: Number(log.bytesTransferred),
+    }));
   }
 
   /**
@@ -256,6 +270,13 @@ export class BackupService {
       },
     });
 
+    // Convert BigInt values to numbers for JSON serialization
+    const serializedActivity = recentActivity.map((log: any) => ({
+      ...log,
+      totalBytes: Number(log.totalBytes),
+      bytesTransferred: Number(log.bytesTransferred),
+    }));
+
     return {
       totalConfigs,
       activeConfigs,
@@ -267,7 +288,7 @@ export class BackupService {
         : 0,
       totalBytesTransferred,
       totalFilesProcessed,
-      recentActivity,
+      recentActivity: serializedActivity,
     };
   }
 
