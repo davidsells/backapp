@@ -126,6 +126,24 @@ export async function retryWithBackoff(fn, options = {}) {
  * @returns {object} Classification with category and userMessage
  */
 export function classifyError(error) {
+  // Check for missing dependencies (preserve custom error message if set)
+  if (error.code === 'ENOENT' && error.message) {
+    if (error.message.includes('aws command not found')) {
+      return {
+        category: 'missing-dependency',
+        userMessage: error.message,
+        retriable: false,
+      };
+    }
+    if (error.message.includes('rsync command not found')) {
+      return {
+        category: 'missing-dependency',
+        userMessage: error.message,
+        retriable: false,
+      };
+    }
+  }
+
   // File system errors
   if (error.code === 'ENOENT') {
     return {
