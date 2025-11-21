@@ -27,8 +27,8 @@ if [ $attempt -eq $max_attempts ]; then
 fi
 
 # Run database migrations
-echo "Running database migrations..."
-npx prisma migrate deploy
+echo "Syncing database schema..."
+npx prisma db push --skip-generate --accept-data-loss
 
 # Seed database if needed (development only)
 if [ "$NODE_ENV" = "development" ]; then
