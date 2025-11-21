@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { requireAgentAuth, updateAgentLastSeen } from '@/lib/agent/agent-auth';
 import { prisma } from '@/lib/db/prisma';
 
 const reportSizeSchema = z.object({
@@ -14,20 +15,14 @@ const reportSizeSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
-    // Verify agent authentication
-    const agentKey = request.headers.get('x-agent-key');
-    if (!agentKey) {
-      return NextResponse.json({ error: 'Agent key required' }, { status: 401 });
+    // Authenticate agent
+    const { error, agent } = await requireAgentAuth(request);
+    if (error || !agent) {
+      return error;
     }
 
-    // Find agent by key
-    const agent = await prisma.agent.findFirst({
-      where: { agentKey },
-    });
-
-    if (!agent) {
-      return NextResponse.json({ error: 'Invalid agent key' }, { status: 401 });
-    }
+    // Update agent heartbeat
+    await updateAgentLastSeen(agent.id);
 
     const body = await request.json();
     const validationResult = reportSizeSchema.safeParse(body);

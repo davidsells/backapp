@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAgentAuth, updateAgentLastSeen } from '@/lib/agent/agent-auth';
 import { prisma } from '@/lib/db/prisma';
 
 /**
@@ -6,20 +7,14 @@ import { prisma } from '@/lib/db/prisma';
  */
 export async function GET(request: NextRequest) {
   try {
-    // Verify agent authentication
-    const agentKey = request.headers.get('x-agent-key');
-    if (!agentKey) {
-      return NextResponse.json({ error: 'Agent key required' }, { status: 401 });
+    // Authenticate agent
+    const { error, agent } = await requireAgentAuth(request);
+    if (error || !agent) {
+      return error;
     }
 
-    // Find agent by key
-    const agent = await prisma.agent.findFirst({
-      where: { apiKeyHash: agentKey },
-    });
-
-    if (!agent) {
-      return NextResponse.json({ error: 'Invalid agent key' }, { status: 401 });
-    }
+    // Update agent heartbeat
+    await updateAgentLastSeen(agent.id);
 
     // Get pending size assessment requests for this agent
     const requests = await prisma.sizeAssessmentRequest.findMany({
