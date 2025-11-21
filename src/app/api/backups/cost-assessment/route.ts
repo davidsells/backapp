@@ -193,7 +193,12 @@ async function getS3Pricing(storageClass: string): Promise<S3Pricing> {
     console.warn('Failed to fetch live pricing from AWS, using default pricing:', error);
   }
 
-  return defaultPricing[storageClass] || defaultPricing.STANDARD_IA;
+  // Return pricing for the specified storage class, or default to STANDARD_IA
+  const pricing = defaultPricing[storageClass];
+  if (pricing) {
+    return pricing;
+  }
+  return defaultPricing.STANDARD_IA;
 }
 
 /**
