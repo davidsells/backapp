@@ -41,6 +41,10 @@ function formatLastBackup(recentActivity: BackupStats['recentActivity']): string
   }
 
   const lastBackup = recentActivity[0];
+  if (!lastBackup) {
+    return 'Never';
+  }
+
   const time = lastBackup.endTime || lastBackup.startTime;
   const date = new Date(time);
   const now = new Date();
