@@ -246,6 +246,9 @@ export class S3BackupManagementService {
     for (const [groupKey, files] of rsyncFilesByGroup.entries()) {
       const [configId, date] = groupKey.split(':');
 
+      // Skip if date is missing (shouldn't happen but TypeScript safety)
+      if (!date) continue;
+
       // Calculate total size of all files in this rsync backup
       const totalSize = files.reduce((sum, f) => sum + f.size, 0);
 
