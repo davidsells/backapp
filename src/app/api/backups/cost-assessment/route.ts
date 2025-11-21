@@ -55,12 +55,33 @@ export async function POST(request: NextRequest) {
         totalFiles += sizeInfo.files;
       }
     } else {
-      // For agent-based, we can't calculate the size here
-      // Return estimate based on typical scenarios
+      // For agent-based, create a size assessment request
+      const { agentId } = validationResult.data;
+
+      if (!agentId) {
+        return NextResponse.json({
+          success: false,
+          error: 'Agent ID is required for agent-based cost assessment',
+        }, { status: 400 });
+      }
+
+      // Create size assessment request for agent to pick up
+      const { prisma } = await import('@/lib/db/prisma');
+      const assessmentRequest = await prisma.sizeAssessmentRequest.create({
+        data: {
+          userId: session.user.id,
+          agentId,
+          sources: sources as any,
+          status: 'pending',
+        },
+      });
+
+      // Return request ID for polling
       return NextResponse.json({
         success: true,
         agentBased: true,
-        message: 'For agent-based backups, cost assessment requires the agent to report directory size. Please configure and run the backup once to gather size metrics.',
+        requestId: assessmentRequest.id,
+        message: 'Size assessment requested from agent. This may take a few moments depending on agent polling interval (typically 10 minutes).',
         estimatedPricing: await getS3Pricing(storageClass),
       });
     }
@@ -129,7 +150,7 @@ async function calculateDirectorySize(dirPath: string): Promise<{ bytes: number;
 /**
  * Get S3 pricing for specified storage class using AWS Pricing API
  */
-async function getS3Pricing(storageClass: string): Promise<S3Pricing> {
+export async function getS3Pricing(storageClass: string): Promise<S3Pricing> {
   // Guaranteed fallback pricing (STANDARD_IA)
   const fallbackPricing: S3Pricing = {
     storage: 0.0125,
@@ -203,7 +224,7 @@ async function getS3Pricing(storageClass: string): Promise<S3Pricing> {
 /**
  * Calculate cost breakdown
  */
-function calculateCosts(sizeGB: number, fileCount: number, pricing: S3Pricing, storageClass: string) {
+export function calculateCosts(sizeGB: number, fileCount: number, pricing: S3Pricing, storageClass: string) {
   // Initial upload costs
   const uploadRequests = Math.ceil(fileCount / 1000); // Assume 1 PUT per file
   const uploadRequestCost = uploadRequests * pricing.putRequests;

@@ -6,6 +6,7 @@ import { BackupExecutor } from './backup-executor.js';
 import { Logger } from './logger.js';
 import { AgentWebSocketClient } from './websocket-client.js';
 import { filterDueConfigs, shouldRunBackup } from './schedule-checker.js';
+import { SizeCalculator } from './size-calculator.js';
 
 /**
  * BackApp Agent - Client-side backup execution
@@ -66,6 +67,43 @@ class Agent {
   }
 
   /**
+   * Process size assessment requests
+   */
+  async processSizeRequests() {
+    try {
+      this.logger.info('Checking for size assessment requests...');
+      const requests = await this.apiClient.getSizeRequests();
+
+      if (requests.length === 0) {
+        this.logger.debug('No size assessment requests pending');
+        return;
+      }
+
+      this.logger.info(`Found ${requests.length} size assessment request(s)`);
+      const calculator = new SizeCalculator(this.logger);
+
+      for (const request of requests) {
+        try {
+          this.logger.info(`Calculating size for request ${request.id}...`);
+          const result = await calculator.calculateSize(request.sources);
+
+          this.logger.info(
+            `Size calculated: ${(result.totalBytes / 1024 / 1024 / 1024).toFixed(2)} GB, ${result.totalFiles} files`
+          );
+
+          await this.apiClient.reportSize(request.id, result.totalBytes, result.totalFiles);
+          this.logger.info(`Size reported for request ${request.id}`);
+        } catch (error) {
+          this.logger.error(`Failed to calculate size for request ${request.id}: ${error.message}`);
+          await this.apiClient.reportSize(request.id, 0, 0, error.message);
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Size assessment cycle failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Run backup cycle
    * Checks for:
    * 1. Requested backups (user clicked "Run Now")
@@ -73,6 +111,9 @@ class Agent {
    */
   async run() {
     try {
+      // Process size assessment requests first
+      await this.processSizeRequests();
+
       // Fetch configurations
       this.logger.info('Fetching backup configurations...');
       const configs = await this.apiClient.getConfigs();

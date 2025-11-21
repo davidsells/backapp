@@ -139,3 +139,21 @@ model AgentLog {
   @@index([level])
   @@map("agent_logs")
 }
+
+model SizeAssessmentRequest {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  agentId     String    @map("agent_id")
+  sources     Json      // Array of source paths to assess
+  status      String    @default("pending") // pending, completed, failed
+  totalBytes  BigInt?   @map("total_bytes")
+  totalFiles  Int?      @map("total_files")
+  error       String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  completedAt DateTime? @map("completed_at")
+
+  @@index([agentId, status])
+  @@index([createdAt])
+  @@map("size_assessment_requests")
+}
+

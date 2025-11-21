@@ -7,6 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 interface CostAssessmentResult {
   success: boolean;
   agentBased: boolean;
+  requestId?: string;
+  status?: string;
   message?: string;
   totalSizeBytes?: number;
   totalSizeGB?: number;
@@ -60,10 +62,68 @@ export function CostAssessmentModal({
 }: CostAssessmentModalProps) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CostAssessmentResult | null>(null);
+  const [polling, setPolling] = useState(false);
+
+  const pollForResults = async (requestId: string) => {
+    setPolling(true);
+    const maxAttempts = 30; // Poll for up to 5 minutes (30 * 10 seconds)
+    let attempts = 0;
+
+    const poll = async (): Promise<void> => {
+      attempts++;
+
+      try {
+        const response = await fetch(`/api/backups/cost-assessment/${requestId}?storageClass=${storageClass}`);
+        const data = await response.json();
+
+        if (data.status === 'completed') {
+          setResult(data);
+          setPolling(false);
+          setLoading(false);
+          return;
+        }
+
+        if (data.status === 'failed') {
+          setResult({
+            success: false,
+            agentBased: true,
+            error: data.error || 'Size calculation failed on agent',
+          });
+          setPolling(false);
+          setLoading(false);
+          return;
+        }
+
+        // Still pending, continue polling
+        if (attempts < maxAttempts) {
+          setTimeout(() => poll(), 10000); // Poll every 10 seconds
+        } else {
+          setResult({
+            success: false,
+            agentBased: true,
+            error: 'Timeout waiting for agent response. The agent may be offline or busy.',
+          });
+          setPolling(false);
+          setLoading(false);
+        }
+      } catch (error) {
+        setResult({
+          success: false,
+          agentBased: true,
+          error: 'Failed to poll for assessment results',
+        });
+        setPolling(false);
+        setLoading(false);
+      }
+    };
+
+    await poll();
+  };
 
   const runAssessment = async () => {
     setLoading(true);
     setResult(null);
+    setPolling(false);
 
     try {
       const response = await fetch('/api/backups/cost-assessment', {
@@ -78,14 +138,25 @@ export function CostAssessmentModal({
       });
 
       const data = await response.json();
-      setResult(data);
+
+      // If agent-based and we got a requestId, start polling
+      if (data.agentBased && data.requestId) {
+        setResult({
+          ...data,
+          message: data.message + ' Polling for results...',
+        });
+        await pollForResults(data.requestId);
+      } else {
+        // Server-side assessment, results are immediate
+        setResult(data);
+        setLoading(false);
+      }
     } catch (error) {
       setResult({
         success: false,
         agentBased: false,
         error: 'Failed to calculate cost assessment',
       });
-    } finally {
       setLoading(false);
     }
   };
@@ -140,7 +211,11 @@ export function CostAssessmentModal({
           {loading && (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-              <p className="text-gray-600">Calculating directory size and fetching pricing...</p>
+              <p className="text-gray-600">
+                {polling
+                  ? 'Waiting for agent to calculate directory size... (This may take a few moments depending on agent polling frequency)'
+                  : 'Calculating directory size and fetching pricing...'}
+              </p>
             </div>
           )}
 

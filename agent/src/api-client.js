@@ -126,4 +126,37 @@ export class ApiClient {
       throw new Error(`S3 upload failed: ${error.message}`);
     }
   }
+
+  /**
+   * Fetch pending size assessment requests
+   */
+  async getSizeRequests() {
+    try {
+      const response = await this.client.get('/api/agent/size-requests');
+      return response.data.requests || [];
+    } catch (error) {
+      throw new Error(`Failed to fetch size requests: ${error.message}`);
+    }
+  }
+
+  /**
+   * Report size assessment results
+   * @param {string} requestId - Size assessment request ID
+   * @param {number} totalBytes - Total size in bytes
+   * @param {number} totalFiles - Total file count
+   * @param {string} [error] - Error message if failed
+   */
+  async reportSize(requestId, totalBytes, totalFiles, error = null) {
+    try {
+      const response = await this.client.post('/api/agent/size-assessment', {
+        requestId,
+        totalBytes,
+        totalFiles,
+        error,
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(`Failed to report size: ${error.message}`);
+    }
+  }
 }
