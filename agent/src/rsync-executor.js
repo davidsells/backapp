@@ -368,7 +368,14 @@ export class RsyncExecutor {
         args.push('--delete'); // Mirror deletions to S3
       }
 
-      this.logger.debug(`Executing: aws ${args.join(' ')}`);
+      // Try to find aws in common locations if not in PATH
+      const awsCommand = this.findCommand('aws', [
+        '/usr/local/bin/aws',
+        '/usr/bin/aws',
+        '/opt/aws-cli/bin/aws',
+      ]);
+
+      this.logger.debug(`Executing: ${awsCommand} ${args.join(' ')}`);
 
       // Set AWS credentials from backupConfig (provided by server)
       const env = {
@@ -390,7 +397,7 @@ export class RsyncExecutor {
         this.logger.warn('No AWS credentials provided in backupConfig, attempting with environment credentials');
       }
 
-      const awsProcess = spawn('aws', args, { env });
+      const awsProcess = spawn(awsCommand, args, { env });
       let stdout = '';
       let stderr = '';
 
@@ -493,5 +500,28 @@ export class RsyncExecutor {
     }
 
     this.wsClient.notifyBackupProgress(backupConfig.id, backupConfig.name, progress);
+  }
+
+  /**
+   * Find a command in PATH or common installation locations
+   * @param {string} command - Command name to find
+   * @param {string[]} fallbackPaths - Array of absolute paths to check
+   * @returns {string} Command to use (either name if in PATH, or full path)
+   */
+  findCommand(command, fallbackPaths = []) {
+    // First try using the command as-is (relies on PATH)
+    // If it fails, spawn will throw ENOENT and we'll catch it
+
+    // Check if any of the fallback paths exist
+    for (const fallbackPath of fallbackPaths) {
+      if (fs.existsSync(fallbackPath)) {
+        this.logger.debug(`Found ${command} at: ${fallbackPath}`);
+        return fallbackPath;
+      }
+    }
+
+    // Default to command name (will use PATH)
+    this.logger.debug(`Using ${command} from PATH`);
+    return command;
   }
 }
