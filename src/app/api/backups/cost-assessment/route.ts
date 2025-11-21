@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@/lib/auth/auth';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-
-const execAsync = promisify(exec);
 
 const costAssessmentSchema = z.object({
   sources: z.array(z.object({
@@ -45,7 +41,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { sources, storageClass, executionMode, agentId } = validationResult.data;
+    const { sources, storageClass, executionMode } = validationResult.data;
 
     // Calculate total size of source directories
     let totalSizeBytes = 0;
