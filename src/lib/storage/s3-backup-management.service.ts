@@ -171,19 +171,44 @@ export class S3BackupManagementService {
 
   /**
    * Parse S3 objects into BackupFile format
-   * Filters to only show archive files (.tar.gz), excluding rsync individual files
+   * Handles both archive backups (.tar.gz) and rsync backups (grouped by date)
    */
   private parseBackupFiles(objects: S3Object[]): BackupFile[] {
-    // Filter out rsync individual files - only show .tar.gz archives
-    const archiveFiles = objects.filter(obj => {
-      const filename = obj.key.split('/').pop() || '';
-      // Only show .tar.gz files (archive backups)
-      // Exclude rsync directories and individual synced files
-      return filename.endsWith('.tar.gz');
-    });
+    const backupEntries: BackupFile[] = [];
 
-    return archiveFiles.map(obj => {
-      // Extract configId from path: users/{userId}/agents/{agentId}/configs/{configId}/filename
+    // Separate files by type
+    const archiveFiles: S3Object[] = [];
+    const rsyncFilesByGroup: Map<string, S3Object[]> = new Map();
+
+    for (const obj of objects) {
+      const filename = obj.key.split('/').pop() || '';
+
+      // Archive backups (.tar.gz files)
+      if (filename.endsWith('.tar.gz')) {
+        archiveFiles.push(obj);
+      }
+      // Rsync backups (files in /rsync/{date}/ directories)
+      else if (obj.key.includes('/rsync/')) {
+        // Extract configId and date from path
+        // Pattern: users/{userId}/agents/{agentId}/configs/{configId}/rsync/{YYYY-MM-DD}/...
+        const configMatch = obj.key.match(/\/configs\/([^/]+)\/rsync/);
+        const dateMatch = obj.key.match(/\/rsync\/(\d{4}-\d{2}-\d{2})\//);
+
+        if (configMatch && configMatch[1] && dateMatch && dateMatch[1]) {
+          const configId = configMatch[1];
+          const date = dateMatch[1];
+          const groupKey = `${configId}:${date}`;
+
+          if (!rsyncFilesByGroup.has(groupKey)) {
+            rsyncFilesByGroup.set(groupKey, []);
+          }
+          rsyncFilesByGroup.get(groupKey)!.push(obj);
+        }
+      }
+    }
+
+    // Process archive backups
+    for (const obj of archiveFiles) {
       const pathParts = obj.key.split('/');
       const configsIndex = pathParts.indexOf('configs');
       const configIdIndex = configsIndex >= 0 ? configsIndex + 1 : -1;
@@ -192,8 +217,7 @@ export class S3BackupManagementService {
         : undefined;
       const configId = configIdFromPath || 'unknown';
 
-      // Extract timestamp from filename if possible
-      // Expected format: backup-2025-01-07-143022.tar.gz
+      // Extract timestamp from filename
       const filename = pathParts[pathParts.length - 1] || '';
       let timestamp = obj.lastModified;
 
@@ -211,12 +235,43 @@ export class S3BackupManagementService {
         }
       }
 
-      return {
+      backupEntries.push({
         ...obj,
         configId,
         timestamp,
-      };
-    });
+      });
+    }
+
+    // Process rsync backups - create grouped entries
+    for (const [groupKey, files] of rsyncFilesByGroup.entries()) {
+      const [configId, date] = groupKey.split(':');
+
+      // Calculate total size of all files in this rsync backup
+      const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+
+      // Use the most recent lastModified date from all files
+      const mostRecentDate = files.reduce((latest, f) =>
+        f.lastModified > latest ? f.lastModified : latest,
+        files[0]?.lastModified || new Date()
+      );
+
+      // Create a virtual backup entry representing the rsync backup
+      // Use the first file's key as base, but modify to show it's a grouped rsync backup
+      const baseKey = files[0]?.key || '';
+      const rsyncDirKey = baseKey.substring(0, baseKey.indexOf('/rsync/') + 7 + date.length + 1);
+
+      backupEntries.push({
+        key: rsyncDirKey,
+        size: totalSize,
+        lastModified: mostRecentDate,
+        timestamp: new Date(date + 'T00:00:00Z'),
+        configId: configId || 'unknown',
+        etag: undefined,
+      });
+    }
+
+    // Sort by timestamp descending (most recent first)
+    return backupEntries.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   }
 }
 
