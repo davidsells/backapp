@@ -10,8 +10,8 @@ max_attempts=30
 attempt=0
 
 while [ $attempt -lt $max_attempts ]; do
-  # Try to connect using Prisma (removes need for psql client)
-  if npx prisma db push --skip-generate --accept-data-loss 2>&1 | grep -q "already in sync\|migrated\|Your database is now in sync"; then
+  # Use pg_isready for simple connection check
+  if pg_isready -d "$DATABASE_URL" >/dev/null 2>&1; then
     echo "PostgreSQL is ready!"
     break
   fi
