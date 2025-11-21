@@ -632,7 +632,7 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
                       variant="outline"
                       onClick={() => setShowCostAssessment(true)}
                       className="w-full"
-                      disabled={formData.sources.length === 0 || !formData.sources[0].path}
+                      disabled={formData.sources.length === 0 || !formData.sources[0]?.path}
                     >
                       💰 Calculate S3 Cost Estimate
                     </Button>
