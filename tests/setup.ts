@@ -5,7 +5,13 @@ process.env.DATABASE_URL =
   'postgresql://test:test@localhost:5433/backupdb_test';
 process.env.NEXTAUTH_SECRET = 'test-secret';
 process.env.NEXTAUTH_URL = 'http://localhost:3000';
-process.env.NODE_ENV = 'test';
+
+// Use Object.defineProperty to avoid TypeScript read-only error
+Object.defineProperty(process.env, 'NODE_ENV', {
+  value: 'test',
+  writable: true,
+  configurable: true,
+});
 
 // Global test utilities
 global.console = {
