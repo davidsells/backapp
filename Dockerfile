@@ -28,8 +28,8 @@ WORKDIR /app
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
-# Install PostgreSQL client for database connectivity checks
-RUN apk add --no-cache postgresql-client
+# Install PostgreSQL client for database connectivity checks and OpenSSL for Prisma
+RUN apk add --no-cache postgresql-client openssl
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -47,6 +47,9 @@ COPY --from=builder /app/node_modules/.bin ./node_modules/.bin
 # Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Change ownership of app directory to nextjs user
+RUN chown -R nextjs:nodejs /app
 
 USER nextjs
 
