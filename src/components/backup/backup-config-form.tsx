@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ExecutionMode, Agent } from '@/lib/types/backup.types';
+import { CostAssessmentModal } from './cost-assessment-modal';
 
 interface BackupSource {
   path: string;
@@ -53,6 +54,7 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
   const [useSchedule, setUseSchedule] = useState(!!initialData?.schedule);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loadingAgents, setLoadingAgents] = useState(true);
+  const [showCostAssessment, setShowCostAssessment] = useState(false);
   const isEditing = !!configId;
 
   const [formData, setFormData] = useState<FormData>({
@@ -195,6 +197,7 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
   };
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-700">
@@ -623,6 +626,20 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
                       Storage class is applied when files are uploaded to S3. Different backup configs can use different storage classes.
                     </p>
                   </div>
+                  <div className="pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowCostAssessment(true)}
+                      className="w-full"
+                      disabled={formData.sources.length === 0 || !formData.sources[0].path}
+                    >
+                      💰 Calculate S3 Cost Estimate
+                    </Button>
+                    <p className="text-xs text-gray-500 mt-1 text-center">
+                      Get estimated monthly and yearly costs for S3 storage
+                    </p>
+                  </div>
                 </div>
               )}
               <div className="flex items-center space-x-2">
@@ -736,5 +753,16 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
         </Button>
       </div>
     </form>
+
+    {/* Cost Assessment Modal */}
+    <CostAssessmentModal
+      isOpen={showCostAssessment}
+      onClose={() => setShowCostAssessment(false)}
+      sources={formData.sources}
+      storageClass={formData.options.rsync?.storageClass || 'STANDARD_IA'}
+      executionMode={formData.executionMode}
+      agentId={formData.agentId}
+    />
+    </>
   );
 }
