@@ -16,9 +16,9 @@ const reportSizeSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     // Authenticate agent
-    const { error, agent } = await requireAgentAuth(request);
-    if (error || !agent) {
-      return error;
+    const { error: authError, agent } = await requireAgentAuth(request);
+    if (authError || !agent) {
+      return authError;
     }
 
     // Update agent heartbeat
