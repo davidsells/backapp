@@ -28,11 +28,7 @@ fi
 
 # Run database migrations
 echo "Running database migrations..."
-if [ -f "/app/node_modules/.bin/prisma" ]; then
-  npx prisma migrate deploy
-else
-  echo "Prisma not found, skipping migrations"
-fi
+npx prisma migrate deploy
 
 # Seed database if needed (development only)
 if [ "$NODE_ENV" = "development" ]; then
