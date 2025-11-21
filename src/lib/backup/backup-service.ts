@@ -53,7 +53,7 @@ export class BackupService {
         null // No configId for new configs
       );
       if (!duplicateCheck.valid) {
-        throw new Error(duplicateCheck.error || 'Local replica directory validation failed');
+        throw new Error(duplicateCheck.errors?.join(', ') || 'Local replica directory validation failed');
       }
     }
 
@@ -144,7 +144,7 @@ export class BackupService {
         configId // Pass configId to exclude self from check
       );
       if (!duplicateCheck.valid) {
-        throw new Error(duplicateCheck.error || 'Local replica directory validation failed');
+        throw new Error(duplicateCheck.errors?.join(', ') || 'Local replica directory validation failed');
       }
     }
 
