@@ -5,12 +5,13 @@ echo "Starting BackApp..."
 
 # Wait for PostgreSQL to be ready
 echo "Waiting for PostgreSQL to be ready..."
+echo "DATABASE_URL: ${DATABASE_URL}"
 max_attempts=30
 attempt=0
 
 while [ $attempt -lt $max_attempts ]; do
-  if npx prisma db push --skip-generate --accept-data-loss 2>/dev/null || \
-     psql "$DATABASE_URL" -c '\q' 2>/dev/null; then
+  # Try to connect using Prisma (removes need for psql client)
+  if npx prisma db push --skip-generate --accept-data-loss 2>&1 | grep -q "already in sync\|migrated\|Your database is now in sync"; then
     echo "PostgreSQL is ready!"
     break
   fi
