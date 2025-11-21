@@ -46,6 +46,20 @@ export async function GET(
         storageClass
       );
 
+      // Calculate costs for all storage classes for comparison
+      const allStorageClasses = ['STANDARD', 'STANDARD_IA', 'GLACIER', 'DEEP_ARCHIVE'] as const;
+      const allAssessments = await Promise.all(
+        allStorageClasses.map(async (sc) => {
+          const scPricing = await getS3Pricing(sc);
+          return {
+            storageClass: sc,
+            selected: sc === storageClass,
+            costs: calculateCosts(sizeGB, assessmentRequest.totalFiles || 0, scPricing, sc),
+            pricing: scPricing,
+          };
+        })
+      );
+
       return NextResponse.json({
         success: true,
         status: 'completed',
@@ -55,6 +69,7 @@ export async function GET(
         storageClass,
         costs: assessment,
         pricing,
+        allStorageClasses: allAssessments, // Add comparison of all storage classes
       });
     }
 

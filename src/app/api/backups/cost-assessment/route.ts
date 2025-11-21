@@ -89,9 +89,23 @@ export async function POST(request: NextRequest) {
     // Get S3 pricing
     const pricing = await getS3Pricing(storageClass);
 
-    // Calculate costs
+    // Calculate costs for the selected storage class
     const sizeGB = totalSizeBytes / (1024 * 1024 * 1024);
     const assessment = calculateCosts(sizeGB, totalFiles, pricing, storageClass);
+
+    // Calculate costs for all storage classes for comparison
+    const allStorageClasses = ['STANDARD', 'STANDARD_IA', 'GLACIER', 'DEEP_ARCHIVE'] as const;
+    const allAssessments = await Promise.all(
+      allStorageClasses.map(async (sc) => {
+        const scPricing = await getS3Pricing(sc);
+        return {
+          storageClass: sc,
+          selected: sc === storageClass,
+          costs: calculateCosts(sizeGB, totalFiles, scPricing, sc),
+          pricing: scPricing,
+        };
+      })
+    );
 
     return NextResponse.json({
       success: true,
@@ -102,6 +116,7 @@ export async function POST(request: NextRequest) {
       storageClass,
       costs: assessment,
       pricing,
+      allStorageClasses: allAssessments, // Add comparison of all storage classes
     });
   } catch (error) {
     console.error('Failed to assess backup costs:', error);

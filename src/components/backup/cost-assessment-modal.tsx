@@ -39,6 +39,12 @@ interface CostAssessmentResult {
     };
     notes: string[];
   };
+  allStorageClasses?: Array<{
+    storageClass: string;
+    selected: boolean;
+    costs: any;
+    pricing: any;
+  }>;
   estimatedPricing?: any;
   error?: string;
 }
@@ -264,6 +270,72 @@ export function CostAssessmentModal({
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Storage Class Comparison */}
+              {result.allStorageClasses && result.allStorageClasses.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Storage Class Comparison</CardTitle>
+                    <CardDescription>Compare costs across all S3 storage tiers</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left py-2 px-2 font-semibold">Storage Class</th>
+                            <th className="text-right py-2 px-2 font-semibold">Initial Upload</th>
+                            <th className="text-right py-2 px-2 font-semibold">Monthly Cost</th>
+                            <th className="text-right py-2 px-2 font-semibold">Yearly Cost</th>
+                            <th className="text-right py-2 px-2 font-semibold">Storage Rate</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {result.allStorageClasses.map((sc) => (
+                            <tr
+                              key={sc.storageClass}
+                              className={`border-b ${
+                                sc.selected
+                                  ? 'bg-blue-50 border-blue-200 font-semibold'
+                                  : 'hover:bg-gray-50'
+                              }`}
+                            >
+                              <td className="py-3 px-2">
+                                <div className="flex items-center gap-2">
+                                  {sc.storageClass}
+                                  {sc.selected && (
+                                    <span className="px-2 py-0.5 bg-blue-500 text-white text-xs rounded">
+                                      Selected
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="text-right py-3 px-2">
+                                {formatCurrency(sc.costs.oneTime.total)}
+                              </td>
+                              <td className="text-right py-3 px-2">
+                                {formatCurrency(sc.costs.monthly.total)}
+                              </td>
+                              <td className="text-right py-3 px-2">
+                                {formatCurrency(sc.costs.yearly.total)}
+                              </td>
+                              <td className="text-right py-3 px-2 text-gray-600">
+                                {formatCurrency(sc.costs.breakdown.storagePerGB)}/GB
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="mt-4 text-xs text-gray-600 space-y-1">
+                      <p><strong>STANDARD:</strong> Best for frequently accessed data. No retrieval fees.</p>
+                      <p><strong>STANDARD_IA:</strong> Infrequent access. Lower storage cost, retrieval fees apply. 30-day minimum.</p>
+                      <p><strong>GLACIER:</strong> Archive data with rare access. Very low storage cost. 90-day minimum. 1-5 min to 12 hr retrieval.</p>
+                      <p><strong>DEEP_ARCHIVE:</strong> Lowest cost for long-term archives. 180-day minimum. 12-48 hr retrieval.</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* One-Time Costs */}
               <Card>
