@@ -130,6 +130,15 @@ async function calculateDirectorySize(dirPath: string): Promise<{ bytes: number;
  * Get S3 pricing for specified storage class using AWS Pricing API
  */
 async function getS3Pricing(storageClass: string): Promise<S3Pricing> {
+  // Guaranteed fallback pricing (STANDARD_IA)
+  const fallbackPricing: S3Pricing = {
+    storage: 0.0125,
+    putRequests: 0.01,
+    getRequests: 0.001,
+    dataTransferOut: 0.09,
+    retrievalFee: 0.01,
+  };
+
   // Default pricing (fallback if AWS CLI not available or API call fails)
   // Prices as of 2024 for us-east-1
   const defaultPricing: Record<string, S3Pricing> = {
@@ -139,13 +148,7 @@ async function getS3Pricing(storageClass: string): Promise<S3Pricing> {
       getRequests: 0.0004, // $0.0004 per 1000 GET requests
       dataTransferOut: 0.09, // $0.09 per GB (first 10TB)
     },
-    STANDARD_IA: {
-      storage: 0.0125, // $0.0125 per GB/month
-      putRequests: 0.01, // $0.01 per 1000 PUT requests
-      getRequests: 0.001, // $0.001 per 1000 GET requests
-      dataTransferOut: 0.09,
-      retrievalFee: 0.01, // $0.01 per GB retrieved
-    },
+    STANDARD_IA: fallbackPricing,
     GLACIER: {
       storage: 0.004, // $0.004 per GB/month
       putRequests: 0.03, // $0.03 per 1000 PUT requests
@@ -193,12 +196,8 @@ async function getS3Pricing(storageClass: string): Promise<S3Pricing> {
     console.warn('Failed to fetch live pricing from AWS, using default pricing:', error);
   }
 
-  // Return pricing for the specified storage class, or default to STANDARD_IA
-  const pricing = defaultPricing[storageClass];
-  if (pricing) {
-    return pricing;
-  }
-  return defaultPricing.STANDARD_IA;
+  // Return pricing for the specified storage class, or default to fallback
+  return defaultPricing[storageClass] ?? fallbackPricing;
 }
 
 /**
