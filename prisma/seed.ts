@@ -6,25 +6,6 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Seeding database...');
 
-  // Create app settings with registration enabled
-  // First check if settings already exist
-  let appSettings = await prisma.appSettings.findFirst();
-
-  if (!appSettings) {
-    appSettings = await prisma.appSettings.create({
-      data: {
-        registrationEnabled: true,
-        requireApproval: false,
-      },
-    });
-    console.log('✅ Created app settings:', {
-      registrationEnabled: appSettings.registrationEnabled,
-      requireApproval: appSettings.requireApproval,
-    });
-  } else {
-    console.log('✅ App settings already exist');
-  }
-
   // Create an admin user
   // Password: AdminPassword123 (meets 12+ chars, uppercase, lowercase, numbers requirement)
   const passwordHash = await bcrypt.hash('AdminPassword123', 10);
@@ -37,7 +18,6 @@ async function main() {
       name: 'Admin User',
       passwordHash,
       role: 'admin',
-      approved: true,
     },
   });
 
