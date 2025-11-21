@@ -6,21 +6,44 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Seeding database...');
 
-  // Create a test user
-  const passwordHash = await bcrypt.hash('password123', 10);
+  // Create app settings with registration enabled
+  // First check if settings already exist
+  let appSettings = await prisma.appSettings.findFirst();
+
+  if (!appSettings) {
+    appSettings = await prisma.appSettings.create({
+      data: {
+        registrationEnabled: true,
+        requireApproval: false,
+      },
+    });
+    console.log('✅ Created app settings:', {
+      registrationEnabled: appSettings.registrationEnabled,
+      requireApproval: appSettings.requireApproval,
+    });
+  } else {
+    console.log('✅ App settings already exist');
+  }
+
+  // Create an admin user
+  // Password: AdminPassword123 (meets 12+ chars, uppercase, lowercase, numbers requirement)
+  const passwordHash = await bcrypt.hash('AdminPassword123', 10);
 
   const user = await prisma.user.upsert({
-    where: { email: 'test@example.com' },
+    where: { email: 'admin@example.com' },
     update: {},
     create: {
-      email: 'test@example.com',
-      name: 'Test User',
+      email: 'admin@example.com',
+      name: 'Admin User',
       passwordHash,
       role: 'admin',
+      approved: true,
     },
   });
 
-  console.log('✅ Created user:', user.email);
+  console.log('✅ Created admin user:', user.email);
+  console.log('   Email: admin@example.com');
+  console.log('   Password: AdminPassword123');
 
   // Create a sample backup configuration
   const config = await prisma.backupConfig.create({
