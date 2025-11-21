@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { auth } from '@/lib/auth/auth';
 import { prisma } from '@/lib/db/prisma';
 
 const reportSizeSchema = z.object({
