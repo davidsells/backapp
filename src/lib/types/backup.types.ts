@@ -30,6 +30,7 @@ export interface BackupOptions {
   rsync?: {
     localReplica: string; // Local staging directory for rsync
     delete?: boolean; // Mirror deletions (--delete flag)
+    uploadToS3?: boolean; // Upload to S3 after rsync (default: true for backward compatibility)
     storageClass?: string; // S3 storage class (STANDARD_IA, GLACIER, etc.)
   };
 }

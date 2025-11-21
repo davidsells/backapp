@@ -58,22 +58,29 @@ export class RsyncExecutor {
         throw new Error('Local replica path not configured');
       }
 
-      // Get AWS credentials from config (provided by server)
-      const awsCredentials = backupConfig.awsCredentials;
-      if (!awsCredentials) {
-        throw new Error('AWS credentials not provided by server. Server must send temporary credentials for rsync backups.');
-      }
+      // Determine if we're uploading to S3 (default true for backward compatibility)
+      const uploadToS3 = rsyncOptions.uploadToS3 !== false;
 
-      const s3Bucket = awsCredentials.bucket;
-      const awsRegion = awsCredentials.region;
+      // If uploading to S3, validate AWS credentials
+      let s3Bucket, awsRegion, s3Prefix, s3Path;
+      if (uploadToS3) {
+        // Get AWS credentials from config (provided by server)
+        const awsCredentials = backupConfig.awsCredentials;
+        if (!awsCredentials) {
+          throw new Error('AWS credentials not provided by server. Server must send temporary credentials for rsync backups.');
+        }
 
-      if (!s3Bucket) {
-        throw new Error('S3 bucket not configured in server credentials');
-      }
+        s3Bucket = awsCredentials.bucket;
+        awsRegion = awsCredentials.region;
 
-      // Validate that userId and agentId are present for path construction
-      if (!backupConfig.userId || !backupConfig.agentId) {
-        throw new Error('Backup configuration missing userId or agentId for S3 path construction');
+        if (!s3Bucket) {
+          throw new Error('S3 bucket not configured in server credentials');
+        }
+
+        // Validate that userId and agentId are present for path construction
+        if (!backupConfig.userId || !backupConfig.agentId) {
+          throw new Error('Backup configuration missing userId or agentId for S3 path construction');
+        }
       }
 
       // Validate source paths exist
@@ -82,14 +89,21 @@ export class RsyncExecutor {
       // Ensure local replica directory exists
       this.ensureDirectory(rsyncOptions.localReplica);
 
-      // Auto-generate S3 path: users/{userId}/agents/{agentId}/configs/{configId}/rsync/{YYYY-MM-DD}
-      // Include configId to prevent multiple rsync configs from overwriting each other
-      const dateTag = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-      const s3Prefix = `users/${backupConfig.userId}/agents/${backupConfig.agentId}/configs/${backupConfig.id}/rsync/${dateTag}/`;
-      const s3Path = `s3://${s3Bucket}/${s3Prefix}`;
+      // Auto-generate S3 path if uploading to S3
+      if (uploadToS3) {
+        // Auto-generate S3 path: users/{userId}/agents/{agentId}/configs/{configId}/rsync/{YYYY-MM-DD}
+        // Include configId to prevent multiple rsync configs from overwriting each other
+        const dateTag = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        s3Prefix = `users/${backupConfig.userId}/agents/${backupConfig.agentId}/configs/${backupConfig.id}/rsync/${dateTag}/`;
+        s3Path = `s3://${s3Bucket}/${s3Prefix}`;
+      }
 
       this.logger.info(`Local replica: ${rsyncOptions.localReplica}`);
-      this.logger.info(`S3 destination: ${s3Path}`);
+      if (uploadToS3) {
+        this.logger.info(`S3 destination: ${s3Path}`);
+      } else {
+        this.logger.info('Local-only backup (S3 upload disabled)');
+      }
 
       // Send initial progress
       this.sendProgress(backupConfig, {
@@ -115,24 +129,28 @@ export class RsyncExecutor {
 
       this.logger.info(`Rsync complete: ${rsyncStats.filesTransferred} files, ${rsyncStats.totalSize} bytes`);
 
-      // Step 2: Upload to S3 using AWS CLI
-      this.logger.info('Step 2: Uploading to S3');
-      this.sendProgress(backupConfig, {
-        stage: 'uploading',
-        filesProcessed: rsyncStats.filesTransferred,
-        bytesProcessed: 0,
-        totalBytes: rsyncStats.totalSize
-      });
+      // Step 2: Upload to S3 using AWS CLI (optional)
+      if (uploadToS3) {
+        this.logger.info('Step 2: Uploading to S3');
+        this.sendProgress(backupConfig, {
+          stage: 'uploading',
+          filesProcessed: rsyncStats.filesTransferred,
+          bytesProcessed: 0,
+          totalBytes: rsyncStats.totalSize
+        });
 
-      await this.uploadToS3(
-        rsyncOptions.localReplica,
-        s3Path,
-        rsyncOptions.storageClass || 'STANDARD_IA',
-        rsyncOptions.delete,
-        backupConfig
-      );
+        await this.uploadToS3(
+          rsyncOptions.localReplica,
+          s3Path,
+          rsyncOptions.storageClass || 'STANDARD_IA',
+          rsyncOptions.delete,
+          backupConfig
+        );
 
-      this.logger.info('S3 upload complete');
+        this.logger.info('S3 upload complete');
+      } else {
+        this.logger.info('Step 2: Skipping S3 upload (local-only backup)');
+      }
 
       // Report completion to server
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);

@@ -24,6 +24,7 @@ const scheduleSchema = z.object({
 const rsyncOptionsSchema = z.object({
   localReplica: z.string().min(1, 'Local replica path is required'),
   delete: z.boolean().optional(),
+  uploadToS3: z.boolean().optional().default(true), // Default to true for backward compatibility
   storageClass: z.enum(['STANDARD', 'STANDARD_IA', 'GLACIER', 'DEEP_ARCHIVE']).optional(),
 });
 

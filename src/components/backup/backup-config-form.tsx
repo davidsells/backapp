@@ -40,6 +40,7 @@ interface FormData {
     rsync?: {
       localReplica: string;
       delete: boolean;
+      uploadToS3: boolean;
       storageClass?: string;
     };
   };
@@ -80,6 +81,7 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
       rsync: initialData?.options?.rsync || {
         localReplica: '/tmp/backup-staging',
         delete: true,
+        uploadToS3: true,
         storageClass: 'STANDARD_IA',
       },
     },
@@ -520,12 +522,12 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
               className="w-full p-2 border rounded-md"
             >
               <option value="archive">Archive (tar.gz)</option>
-              <option value="rsync">Rsync + S3</option>
+              <option value="rsync">Rsync (Local or S3)</option>
             </select>
             <p className="text-sm text-gray-500">
               {formData.options.method === 'archive'
                 ? 'Creates a compressed tar.gz archive and uploads to S3'
-                : 'Uses rsync for incremental local backups, then syncs to S3'}
+                : 'Uses rsync for incremental local backups, optionally syncs to S3'}
             </p>
           </div>
 
@@ -551,48 +553,78 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
                           rsync: {
                             localReplica: e.target.value,
                             delete: formData.options.rsync?.delete ?? true,
+                            uploadToS3: formData.options.rsync?.uploadToS3 ?? true,
                             storageClass: formData.options.rsync?.storageClass,
                           },
                         },
                       })
                     }
-                    placeholder="/tmp/backup-staging"
+                    placeholder="/var/backups/myapp-replica"
                     required={formData.options.method === 'rsync'}
                   />
-                  <p className="text-xs text-gray-600">Where rsync will stage files locally before uploading to S3</p>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="rsyncStorageClass">S3 Storage Class</Label>
-                  <select
-                    id="rsyncStorageClass"
-                    value={formData.options.rsync?.storageClass || 'STANDARD_IA'}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        options: {
-                          ...formData.options,
-                          rsync: {
-                            localReplica: formData.options.rsync?.localReplica ?? '',
-                            delete: formData.options.rsync?.delete ?? true,
-                            storageClass: e.target.value,
-                          },
-                        },
-                      })
-                    }
-                    className="w-full p-2 border rounded-md"
-                  >
-                    <option value="STANDARD">Standard</option>
-                    <option value="STANDARD_IA">Standard-IA (Infrequent Access)</option>
-                    <option value="GLACIER">Glacier</option>
-                    <option value="DEEP_ARCHIVE">Glacier Deep Archive</option>
-                  </select>
-                  <p className="text-xs text-gray-600">
-                    Storage class is applied when files are uploaded to S3. Different backup configs can use different storage classes.
+                  <p className="text-xs text-gray-600 font-medium">
+                    ⚠️ Each backup configuration must use a unique directory to prevent file conflicts
                   </p>
+                  <p className="text-xs text-gray-600">Where rsync will stage files locally{formData.options.rsync?.uploadToS3 !== false ? ' before uploading to S3' : ''}</p>
                 </div>
               </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="rsyncUploadToS3"
+                  checked={formData.options.rsync?.uploadToS3 ?? true}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      options: {
+                        ...formData.options,
+                        rsync: {
+                          localReplica: formData.options.rsync?.localReplica ?? '',
+                          delete: formData.options.rsync?.delete ?? true,
+                          uploadToS3: e.target.checked,
+                          storageClass: formData.options.rsync?.storageClass,
+                        },
+                      },
+                    })
+                  }
+                  className="w-4 h-4"
+                />
+                <Label htmlFor="rsyncUploadToS3">Upload to S3 after rsync (uncheck for local-only backup)</Label>
+              </div>
+              {formData.options.rsync?.uploadToS3 !== false && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="rsyncStorageClass">S3 Storage Class</Label>
+                    <select
+                      id="rsyncStorageClass"
+                      value={formData.options.rsync?.storageClass || 'STANDARD_IA'}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          options: {
+                            ...formData.options,
+                            rsync: {
+                              localReplica: formData.options.rsync?.localReplica ?? '',
+                              delete: formData.options.rsync?.delete ?? true,
+                              uploadToS3: formData.options.rsync?.uploadToS3 ?? true,
+                              storageClass: e.target.value,
+                            },
+                          },
+                        })
+                      }
+                      className="w-full p-2 border rounded-md"
+                    >
+                      <option value="STANDARD">Standard</option>
+                      <option value="STANDARD_IA">Standard-IA (Infrequent Access)</option>
+                      <option value="GLACIER">Glacier</option>
+                      <option value="DEEP_ARCHIVE">Glacier Deep Archive</option>
+                    </select>
+                    <p className="text-xs text-gray-600">
+                      Storage class is applied when files are uploaded to S3. Different backup configs can use different storage classes.
+                    </p>
+                  </div>
+                </div>
+              )}
               <div className="flex items-center space-x-2">
                 <input
                   type="checkbox"
@@ -606,6 +638,7 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
                         rsync: {
                           localReplica: formData.options.rsync?.localReplica ?? '',
                           delete: e.target.checked,
+                          uploadToS3: formData.options.rsync?.uploadToS3 ?? true,
                           storageClass: formData.options.rsync?.storageClass,
                         },
                       },

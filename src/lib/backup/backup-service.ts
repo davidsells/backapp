@@ -45,6 +45,18 @@ export class BackupService {
       throw new Error(`Invalid configuration: ${validation.errors?.join(', ')}`);
     }
 
+    // Validate rsync local replica uniqueness
+    if (input.options.method === 'rsync' && input.options.rsync?.localReplica) {
+      const duplicateCheck = await this.checkDuplicateLocalReplica(
+        input.options.rsync.localReplica,
+        input.userId,
+        null // No configId for new configs
+      );
+      if (!duplicateCheck.valid) {
+        throw new Error(duplicateCheck.error || 'Local replica directory validation failed');
+      }
+    }
+
     const config = await prisma.backupConfig.create({
       data: {
         userId: input.userId,
@@ -121,6 +133,18 @@ export class BackupService {
       const validation = await this.validateSources(input.sources, executionMode);
       if (!validation.valid) {
         throw new Error(`Invalid sources: ${validation.errors?.join(', ')}`);
+      }
+    }
+
+    // Validate rsync local replica uniqueness if being updated
+    if (input.options?.method === 'rsync' && input.options.rsync?.localReplica) {
+      const duplicateCheck = await this.checkDuplicateLocalReplica(
+        input.options.rsync.localReplica,
+        userId,
+        configId // Pass configId to exclude self from check
+      );
+      if (!duplicateCheck.valid) {
+        throw new Error(duplicateCheck.error || 'Local replica directory validation failed');
       }
     }
 
@@ -328,6 +352,54 @@ export class BackupService {
       valid: errors.length === 0,
       errors: errors.length > 0 ? errors : undefined,
     };
+  }
+
+  /**
+   * Check if a local replica directory is already in use by another config
+   * @param localReplica - The local replica path to check
+   * @param userId - The user ID
+   * @param excludeConfigId - Config ID to exclude from check (for updates)
+   * @returns Validation result
+   */
+  private async checkDuplicateLocalReplica(
+    localReplica: string,
+    userId: string,
+    excludeConfigId: string | null
+  ): Promise<ValidationResult> {
+    // Normalize the path (remove trailing slashes for comparison)
+    const normalizedPath = localReplica.replace(/\/+$/, '');
+
+    // Find all rsync configs for this user
+    const configs = await prisma.backupConfig.findMany({
+      where: {
+        userId,
+        ...(excludeConfigId && { id: { not: excludeConfigId } }), // Exclude current config for updates
+      },
+      select: {
+        id: true,
+        name: true,
+        options: true,
+      },
+    });
+
+    // Check if any config uses the same local replica path
+    for (const config of configs) {
+      const options = config.options as any;
+      if (options?.method === 'rsync' && options?.rsync?.localReplica) {
+        const existingPath = options.rsync.localReplica.replace(/\/+$/, '');
+        if (existingPath === normalizedPath) {
+          return {
+            valid: false,
+            errors: [
+              `Local replica directory "${localReplica}" is already in use by backup configuration "${config.name}". ` +
+              `Each rsync backup must use a unique local directory to prevent file conflicts.`
+            ],
+          };
+        }
+      }
+    }
+
+    return { valid: true };
   }
 
   /**
