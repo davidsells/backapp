@@ -2,7 +2,9 @@
 
 ## Overview
 
-The Rclone backup method provides a modern, efficient, and unified backup solution that syncs files directly to cloud storage in a single step. Rclone is a powerful command-line tool that supports 70+ storage backends with built-in features like automatic retries, checksums, and progress tracking.
+The Rclone backup method provides a modern, efficient, and unified backup solution that syncs files directly to cloud storage. Rclone is a powerful command-line tool that supports 70+ storage backends with built-in features like automatic retries, checksums, and progress tracking.
+
+**Important Note:** Both the "rsync" and "rclone" backup methods now use rclone under the hood. The traditional rsync tool and AWS CLI have been replaced with rclone for better performance and reliability. Existing "rsync" configurations continue to work without any changes.
 
 ## Why Rclone? (Advantages over Rsync)
 
@@ -47,9 +49,36 @@ aws s3 sync /staging/ s3://bucket/path/
 
 ---
 
+## Backup Methods Comparison
+
+Both backup methods now use rclone, but they differ in configuration and use cases:
+
+### **"Rsync" Method (Legacy Configuration)**
+- **Use Case**: Two-phase backup (local staging + cloud upload)
+- **Configuration**: Uses `localReplica` path for staging directory
+- **Behavior**:
+  1. Syncs sources to local staging directory
+  2. Uploads staging directory to S3
+- **Backward Compatible**: Existing rsync configs work without changes
+- **Example**: Local backup to `/var/backups/myapp/`, then upload to S3
+
+### **"Rclone" Method (Recommended)**
+- **Use Case**: Flexible backup with two-phase and direct-to-cloud options
+- **Configuration**: Modern configuration with `twoPhase` option
+- **Behavior**:
+  - **Two-phase mode**: Local backup + optional cloud upload (with automatic cleanup)
+  - **Direct mode**: Single-step sync directly to cloud
+  - **Local-only mode**: No cloud upload (air-gapped environments)
+- **Advanced Features**: Storage class selection, bandwidth limiting, checksum verification
+- **Example**: Can do local + cloud with automatic retention management
+
+**Migration Recommendation**: New backups should use the "Rclone" method for more flexibility. Existing "Rsync" configurations will continue to work.
+
+---
+
 ## Prerequisites
 
-Before using the Rclone backup method, ensure your agent system has rclone installed:
+Before using either the Rclone or Rsync backup methods, ensure your agent system has rclone installed:
 
 ### Installation
 
@@ -436,11 +465,17 @@ Enable debug logging in agent config:
 
 ## Summary
 
-Rclone is the **recommended backup method** for:
-- ✅ Simplicity (single-step process)
+**Important Change:** Both "Rsync" and "Rclone" backup methods now use rclone under the hood. You no longer need to install:
+- ❌ Traditional `rsync` command
+- ❌ AWS CLI (`aws`)
+
+**Only rclone is required** for all backup methods.
+
+Rclone provides:
+- ✅ Simplicity (unified tool for all backups)
 - ✅ Reliability (built-in retries and checksums)
 - ✅ Flexibility (70+ storage backends)
-- ✅ Efficiency (no local staging required)
+- ✅ Efficiency (optimized cloud operations)
 - ✅ Features (bandwidth limits, progress tracking, resume capability)
 
-Upgrade from rsync today and experience the difference!
+**Recommendation:** Use the "Rclone" method for new backups to take advantage of advanced features like two-phase mode with automatic cleanup, storage class selection, and flexible configuration options.

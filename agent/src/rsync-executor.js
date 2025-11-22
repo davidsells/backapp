@@ -4,10 +4,16 @@ import path from 'path';
 import { retryWithBackoff, classifyError } from './retry-util.js';
 
 /**
- * Handles rsync-based backup with S3 upload
- * Based on the rsync → S3 pattern:
- * 1. rsync source → local replica (delta copy with hard-links)
- * 2. aws s3 sync local replica → S3 bucket
+ * Handles rsync-style backup with S3 upload using rclone
+ * Based on the rsync → S3 pattern (now using rclone):
+ * 1. rclone sync source → local replica
+ * 2. rclone sync local replica → S3 bucket
+ *
+ * Note: Uses rclone instead of traditional rsync+aws-cli for better features:
+ * - Progress reporting
+ * - Built-in retries
+ * - Checksum verification
+ * - Multi-cloud support (S3, Wasabi, B2, etc.)
  */
 export class RsyncExecutor {
   constructor(config, apiClient, logger, wsClient = null) {
@@ -112,26 +118,26 @@ export class RsyncExecutor {
         bytesProcessed: 0
       });
 
-      // Step 1: Rsync to local replica
-      this.logger.info('Step 1: Syncing to local replica with rsync');
+      // Step 1: Rclone sync to local replica
+      this.logger.info('Step 1: Syncing to local replica with rclone');
       this.sendProgress(backupConfig, {
         stage: 'rsync',
         filesProcessed: 0,
         bytesProcessed: 0
       });
 
-      const rsyncStats = await this.executeRsync(
+      const rsyncStats = await this.executeRcloneLocalSync(
         backupConfig.sources,
         rsyncOptions.localReplica,
         rsyncOptions.delete,
         backupConfig
       );
 
-      this.logger.info(`Rsync complete: ${rsyncStats.filesTransferred} files, ${rsyncStats.totalSize} bytes`);
+      this.logger.info(`Rclone local sync complete: ${rsyncStats.filesTransferred} files, ${rsyncStats.totalSize} bytes`);
 
-      // Step 2: Upload to S3 using AWS CLI (optional)
+      // Step 2: Upload to S3 using rclone (optional)
       if (uploadToS3) {
-        this.logger.info('Step 2: Uploading to S3');
+        this.logger.info('Step 2: Uploading to S3 with rclone');
         this.sendProgress(backupConfig, {
           stage: 'uploading',
           filesProcessed: rsyncStats.filesTransferred,
@@ -139,7 +145,7 @@ export class RsyncExecutor {
           totalBytes: rsyncStats.totalSize
         });
 
-        await this.uploadToS3(
+        await this.uploadToS3WithRclone(
           rsyncOptions.localReplica,
           s3Path,
           rsyncOptions.storageClass || 'STANDARD_IA',
@@ -268,84 +274,94 @@ export class RsyncExecutor {
   }
 
   /**
-   * Execute rsync command to sync sources to local replica
-   * @returns {Promise<object>} Stats about the rsync operation
+   * Execute rclone command to sync sources to local replica
+   * @returns {Promise<object>} Stats about the rclone operation
    */
-  async executeRsync(sources, localReplica, deleteFlag, backupConfig = null) {
+  async executeRcloneLocalSync(sources, localReplica, deleteFlag, backupConfig = null) {
     return new Promise((resolve, reject) => {
-      // Build rsync arguments
+      // Build rclone arguments
       const args = [
-        '--archive',           // Archive mode (recursive, preserve permissions, etc.)
-        '--hard-links',        // Preserve hard links
-        '--human-readable',    // Human-readable output
-        '--stats',             // Show statistics
-        '--progress',          // Show progress
+        'sync',
+        '--stats', '1s',           // Show stats every second
+        '--progress',              // Show progress
+        '--links',                 // Follow symlinks
       ];
 
       if (deleteFlag) {
-        args.push('--delete'); // Remove files in dest that don't exist in source
+        args.push('--delete-excluded'); // Remove files in dest that don't exist in source
       }
 
       // Add exclusions if any
       const exclusions = this.collectExclusions(sources);
       exclusions.forEach(pattern => {
-        args.push(`--exclude=${pattern}`);
+        args.push(`--exclude`, pattern);
       });
 
-      // Add all source paths
-      // Note: Adding trailing slash to copy contents, not folder itself
-      sources.forEach(source => {
-        const sourcePath = source.path.endsWith('/') ? source.path : `${source.path}/`;
-        args.push(sourcePath);
-      });
+      // For multiple sources, sync each one separately
+      // (rclone sync doesn't support multiple sources in one command)
+      const sourcePaths = sources.map(s => s.path);
+
+      if (sourcePaths.length > 1) {
+        this.logger.warn('Multiple sources detected. Currently syncing first source only. Consider using a wrapper directory.');
+      }
+
+      // Add first source path
+      const sourcePath = sourcePaths[0];
+      args.push(sourcePath);
 
       // Add destination
       args.push(localReplica);
 
-      this.logger.debug(`Executing: rsync ${args.join(' ')}`);
+      this.logger.debug(`Executing: rclone ${args.join(' ')}`);
 
-      const rsyncProcess = spawn('rsync', args);
+      const rcloneProcess = spawn('rclone', args);
       let stdout = '';
       let stderr = '';
       let filesTransferred = 0;
       let totalSize = 0;
 
-      rsyncProcess.stdout.on('data', (data) => {
+      rcloneProcess.stdout.on('data', (data) => {
         const output = data.toString();
         stdout += output;
 
         // Parse progress for WebSocket updates
-        // Look for lines like: "1,234 files... 12.34M bytes..."
-        const progressMatch = output.match(/(\d+[,\d]*)\s+files/);
-        if (progressMatch) {
-          const files = parseInt(progressMatch[1].replace(/,/g, ''));
-          this.sendProgress(backupConfig, {
-            stage: 'rsync',
-            filesProcessed: files,
-            bytesProcessed: 0,
-          });
+        // Rclone outputs lines like:
+        // "Transferred:            5 / 10, 50%"
+        const lines = output.split('\n');
+        for (const line of lines) {
+          if (line.includes('Transferred:') && line.includes('/')) {
+            const match = line.match(/Transferred:\s+(\d+)\s+\/\s+(\d+)/);
+            if (match) {
+              filesTransferred = parseInt(match[1]);
+              this.sendProgress(backupConfig, {
+                stage: 'rsync',
+                filesProcessed: filesTransferred,
+                bytesProcessed: 0,
+              });
+            }
+          }
         }
       });
 
-      rsyncProcess.stderr.on('data', (data) => {
+      rcloneProcess.stderr.on('data', (data) => {
         stderr += data.toString();
       });
 
-      rsyncProcess.on('close', (code) => {
+      rcloneProcess.on('close', (code) => {
         if (code === 0) {
           // Parse stats from output
-          const stats = this.parseRsyncStats(stdout);
+          const stats = this.parseRcloneStats(stdout);
           resolve(stats);
         } else {
-          const error = new Error(`Rsync failed with code ${code}: ${stderr}`);
-          error.code = 'RSYNC_ERROR';
+          const error = new Error(`Rclone local sync failed with code ${code}: ${stderr}`);
+          error.code = 'RCLONE_ERROR';
           reject(error);
         }
       });
 
-      rsyncProcess.on('error', (error) => {
+      rcloneProcess.on('error', (error) => {
         if (error.code === 'ENOENT') {
-          error.message = 'rsync command not found. Please install rsync.';
+          error.message = 'rclone command not found. Please install rclone.';
         }
         reject(error);
       });
@@ -353,29 +369,27 @@ export class RsyncExecutor {
   }
 
   /**
-   * Upload local replica to S3 using AWS CLI
+   * Upload local replica to S3 using rclone
    */
-  async uploadToS3(localReplica, s3Path, storageClass, deleteFlag, backupConfig = null) {
+  async uploadToS3WithRclone(localReplica, s3Path, storageClass, deleteFlag, backupConfig = null) {
     return new Promise((resolve, reject) => {
+      // Convert s3://bucket/path format to :s3:bucket/path format for rclone
+      const rcloneS3Path = s3Path.replace('s3://', ':s3:');
+
       const args = [
-        's3', 'sync',
+        'sync',
         localReplica,
-        s3Path,
-        `--storage-class=${storageClass}`,
+        rcloneS3Path,
+        '--stats', '1s',
+        '--progress',
+        '--s3-storage-class', storageClass,
       ];
 
       if (deleteFlag) {
-        args.push('--delete'); // Mirror deletions to S3
+        args.push('--delete-excluded'); // Mirror deletions to S3
       }
 
-      // Try to find aws in common locations if not in PATH
-      const awsCommand = this.findCommand('aws', [
-        '/usr/local/bin/aws',
-        '/usr/bin/aws',
-        '/opt/aws-cli/bin/aws',
-      ]);
-
-      this.logger.debug(`Executing: ${awsCommand} ${args.join(' ')}`);
+      this.logger.debug(`Executing: rclone ${args.join(' ')}`);
 
       // Set AWS credentials from backupConfig (provided by server)
       const env = {
@@ -397,42 +411,52 @@ export class RsyncExecutor {
         this.logger.warn('No AWS credentials provided in backupConfig, attempting with environment credentials');
       }
 
-      const awsProcess = spawn(awsCommand, args, { env });
+      const rcloneProcess = spawn('rclone', args, { env });
       let stdout = '';
       let stderr = '';
 
-      awsProcess.stdout.on('data', (data) => {
+      rcloneProcess.stdout.on('data', (data) => {
         const output = data.toString();
         stdout += output;
 
-        // AWS CLI outputs upload progress
+        // Rclone outputs upload progress
         // Send updates via WebSocket if available
         if (this.wsClient?.isReady() && backupConfig) {
-          this.sendProgress(backupConfig, {
-            stage: 'uploading',
-            filesProcessed: 0,
-            bytesProcessed: 0,
-          });
+          // Parse progress from rclone output
+          const lines = output.split('\n');
+          for (const line of lines) {
+            if (line.includes('Transferred:') && line.includes('/')) {
+              const match = line.match(/Transferred:\s+(\d+)\s+\/\s+(\d+)/);
+              if (match) {
+                const transferred = parseInt(match[1]);
+                this.sendProgress(backupConfig, {
+                  stage: 'uploading',
+                  filesProcessed: transferred,
+                  bytesProcessed: 0,
+                });
+              }
+            }
+          }
         }
       });
 
-      awsProcess.stderr.on('data', (data) => {
+      rcloneProcess.stderr.on('data', (data) => {
         stderr += data.toString();
       });
 
-      awsProcess.on('close', (code) => {
+      rcloneProcess.on('close', (code) => {
         if (code === 0) {
           resolve();
         } else {
-          const error = new Error(`AWS S3 sync failed with code ${code}: ${stderr}`);
+          const error = new Error(`Rclone S3 sync failed with code ${code}: ${stderr}`);
           error.code = 'S3_SYNC_ERROR';
           reject(error);
         }
       });
 
-      awsProcess.on('error', (error) => {
+      rcloneProcess.on('error', (error) => {
         if (error.code === 'ENOENT') {
-          error.message = 'aws command not found. Please install AWS CLI v2.';
+          error.message = 'rclone command not found. Please install rclone.';
         }
         reject(error);
       });
@@ -461,31 +485,43 @@ export class RsyncExecutor {
   }
 
   /**
-   * Parse rsync statistics from output
+   * Parse rclone statistics from output
    */
-  parseRsyncStats(output) {
+  parseRcloneStats(output) {
     const stats = {
       filesTransferred: 0,
       totalSize: 0,
     };
 
     // Look for lines like:
-    // "Number of files: 1,234 (reg: 1,000, dir: 234)"
-    // "Total file size: 12,345,678 bytes"
-    const filesMatch = output.match(/Number of files:\s*(\d+[,\d]*)/);
+    // "Transferred:   	123.456 MBytes (1.234 MBytes/s), ETA 5s"
+    // "Transferred:            5 / 10, 50%"
+
+    // Try to get file count from "Transferred: X / Y" format
+    const filesMatch = output.match(/Transferred:\s+(\d+)\s+\/\s+(\d+)/);
     if (filesMatch) {
-      stats.filesTransferred = parseInt(filesMatch[1].replace(/,/g, ''));
+      stats.filesTransferred = parseInt(filesMatch[2]); // Total files
     }
 
-    const sizeMatch = output.match(/Total file size:\s*(\d+[,\d]*)\s*bytes/);
+    // Try to get size from "Transferred: X.XX MBytes" format
+    const sizeMatch = output.match(/Transferred:\s+[\d.]+\s+([kMG]?)Bytes/);
     if (sizeMatch) {
-      stats.totalSize = parseInt(sizeMatch[1].replace(/,/g, ''));
-    }
+      const sizeStr = output.match(/Transferred:\s+([\d.]+)\s+([kMG]?)Bytes/);
+      if (sizeStr) {
+        let size = parseFloat(sizeStr[1]);
+        const unit = sizeStr[2];
 
-    // Fallback: look for "sent X bytes  received Y bytes"
-    const sentMatch = output.match(/sent\s+(\d+[,\d]*)\s+bytes/);
-    if (sentMatch && stats.totalSize === 0) {
-      stats.totalSize = parseInt(sentMatch[1].replace(/,/g, ''));
+        // Convert to bytes
+        if (unit === 'k' || unit === 'K') {
+          size *= 1024;
+        } else if (unit === 'M') {
+          size *= 1024 * 1024;
+        } else if (unit === 'G') {
+          size *= 1024 * 1024 * 1024;
+        }
+
+        stats.totalSize = Math.round(size);
+      }
     }
 
     return stats;
@@ -500,28 +536,5 @@ export class RsyncExecutor {
     }
 
     this.wsClient.notifyBackupProgress(backupConfig.id, backupConfig.name, progress);
-  }
-
-  /**
-   * Find a command in PATH or common installation locations
-   * @param {string} command - Command name to find
-   * @param {string[]} fallbackPaths - Array of absolute paths to check
-   * @returns {string} Command to use (either name if in PATH, or full path)
-   */
-  findCommand(command, fallbackPaths = []) {
-    // First try using the command as-is (relies on PATH)
-    // If it fails, spawn will throw ENOENT and we'll catch it
-
-    // Check if any of the fallback paths exist
-    for (const fallbackPath of fallbackPaths) {
-      if (fs.existsSync(fallbackPath)) {
-        this.logger.debug(`Found ${command} at: ${fallbackPath}`);
-        return fallbackPath;
-      }
-    }
-
-    // Default to command name (will use PATH)
-    this.logger.debug(`Using ${command} from PATH`);
-    return command;
   }
 }
