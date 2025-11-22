@@ -50,6 +50,10 @@ interface FormData {
       storageClass?: string;
       bandwidth?: number;
       checksumVerification?: boolean;
+      twoPhase?: boolean;
+      localBackupPath?: string;
+      uploadToRemote?: boolean;
+      keepLocalCopies?: number;
     };
   };
 }
