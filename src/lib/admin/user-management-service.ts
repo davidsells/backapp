@@ -6,6 +6,7 @@ export interface UserInfo {
   name: string;
   role: string;
   approved: boolean;
+  suspended: boolean;
   deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -27,6 +28,7 @@ export class UserManagementService {
       name: user.name,
       role: user.role,
       approved: user.approved,
+      suspended: user.suspended,
       deletedAt: user.deletedAt,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
@@ -51,6 +53,7 @@ export class UserManagementService {
       name: user.name,
       role: user.role,
       approved: user.approved,
+      suspended: user.suspended,
       deletedAt: user.deletedAt,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
@@ -72,6 +75,7 @@ export class UserManagementService {
       name: user.name,
       role: user.role,
       approved: user.approved,
+      suspended: user.suspended,
       deletedAt: user.deletedAt,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
@@ -103,6 +107,7 @@ export class UserManagementService {
       name: user.name,
       role: user.role,
       approved: user.approved,
+      suspended: user.suspended,
       deletedAt: user.deletedAt,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
@@ -124,6 +129,51 @@ export class UserManagementService {
       name: user.name,
       role: user.role,
       approved: user.approved,
+      suspended: user.suspended,
+      deletedAt: user.deletedAt,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+  }
+
+  /**
+   * Suspend a user
+   */
+  async suspendUser(userId: string): Promise<UserInfo> {
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { suspended: true },
+    });
+
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      approved: user.approved,
+      suspended: user.suspended,
+      deletedAt: user.deletedAt,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+  }
+
+  /**
+   * Unsuspend a user
+   */
+  async unsuspendUser(userId: string): Promise<UserInfo> {
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { suspended: false },
+    });
+
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      approved: user.approved,
+      suspended: user.suspended,
       deletedAt: user.deletedAt,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
@@ -149,6 +199,7 @@ export class UserManagementService {
       name: user.name,
       role: user.role,
       approved: user.approved,
+      suspended: user.suspended,
       deletedAt: user.deletedAt,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
@@ -159,10 +210,11 @@ export class UserManagementService {
    * Get user statistics
    */
   async getUserStats() {
-    const [total, active, pending, deleted, admins] = await Promise.all([
+    const [total, active, pending, suspended, deleted, admins] = await Promise.all([
       prisma.user.count(),
-      prisma.user.count({ where: { approved: true, deletedAt: null } }),
+      prisma.user.count({ where: { approved: true, suspended: false, deletedAt: null } }),
       prisma.user.count({ where: { approved: false, deletedAt: null } }),
+      prisma.user.count({ where: { suspended: true, deletedAt: null } }),
       prisma.user.count({ where: { deletedAt: { not: null } } }),
       prisma.user.count({ where: { role: 'admin', deletedAt: null } }),
     ]);
@@ -171,6 +223,7 @@ export class UserManagementService {
       total,
       active,
       pending,
+      suspended,
       deleted,
       admins,
     };

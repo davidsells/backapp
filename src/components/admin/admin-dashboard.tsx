@@ -16,6 +16,7 @@ interface UserInfo {
   name: string;
   role: string;
   approved: boolean;
+  suspended: boolean;
   deletedAt: string | null;
   createdAt: string;
 }
@@ -24,6 +25,7 @@ interface Stats {
   total: number;
   active: number;
   pending: number;
+  suspended: number;
   deleted: number;
   admins: number;
 }
@@ -156,6 +158,44 @@ export function AdminDashboard() {
       }
     } catch (err) {
       setError('Failed to restore user');
+    }
+  };
+
+  const suspendUser = async (userId: string) => {
+    if (!confirm('Are you sure you want to suspend this user?')) return;
+
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'suspend' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadData(); // Reload users
+      } else {
+        setError(data.error || 'Failed to suspend user');
+      }
+    } catch (err) {
+      setError('Failed to suspend user');
+    }
+  };
+
+  const unsuspendUser = async (userId: string) => {
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'unsuspend' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadData(); // Reload users
+      } else {
+        setError(data.error || 'Failed to unsuspend user');
+      }
+    } catch (err) {
+      setError('Failed to unsuspend user');
     }
   };
 
@@ -344,6 +384,11 @@ export function AdminDashboard() {
                               Deleted
                             </span>
                           )}
+                          {user.suspended && !user.deletedAt && (
+                            <span className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-700">
+                              Suspended
+                            </span>
+                          )}
                           {!user.approved && !user.deletedAt && (
                             <span className="text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-700">
                               Pending
@@ -359,6 +404,15 @@ export function AdminDashboard() {
                           </Button>
                         ) : (
                           <>
+                            {user.suspended ? (
+                              <Button onClick={() => unsuspendUser(user.id)} variant="outline" size="sm">
+                                Unsuspend
+                              </Button>
+                            ) : (
+                              <Button onClick={() => suspendUser(user.id)} variant="outline" size="sm">
+                                Suspend
+                              </Button>
+                            )}
                             <Button
                               onClick={() => toggleUserRole(user.id, user.role)}
                               variant="outline"
@@ -398,6 +452,12 @@ export function AdminDashboard() {
                 <CardHeader className="pb-2">
                   <CardDescription>Pending Approval</CardDescription>
                   <CardTitle className="text-3xl">{stats.pending}</CardTitle>
+                </CardHeader>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardDescription>Suspended Users</CardDescription>
+                  <CardTitle className="text-3xl">{stats.suspended}</CardTitle>
                 </CardHeader>
               </Card>
               <Card>

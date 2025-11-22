@@ -17,6 +17,7 @@ model User {
   passwordHash String         @map("password_hash")
   role         String         @default("user")
   approved     Boolean        @default(true) // false for new registrations when approval required
+  suspended    Boolean        @default(false) // true if account is suspended
   deletedAt    DateTime?      @map("deleted_at") // Soft delete
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")

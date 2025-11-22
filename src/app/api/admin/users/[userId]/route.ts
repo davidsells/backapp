@@ -8,7 +8,7 @@ const updateRoleSchema = z.object({
 });
 
 const actionSchema = z.object({
-  action: z.enum(['reject', 'restore']),
+  action: z.enum(['reject', 'restore', 'suspend', 'unsuspend']),
 });
 
 /**
@@ -75,7 +75,7 @@ export async function PATCH(
       return NextResponse.json({ success: true, user });
     }
 
-    // Check if it's an action (reject/restore)
+    // Check if it's an action (reject/restore/suspend/unsuspend)
     const actionValidation = actionSchema.safeParse(body);
     if (actionValidation.success) {
       if (actionValidation.data.action === 'reject') {
@@ -83,6 +83,19 @@ export async function PATCH(
         return NextResponse.json({ success: true });
       } else if (actionValidation.data.action === 'restore') {
         const user = await userManagementService.restoreUser(params.userId);
+        return NextResponse.json({ success: true, user });
+      } else if (actionValidation.data.action === 'suspend') {
+        // Prevent admin from suspending themselves
+        if (session.user.id === params.userId) {
+          return NextResponse.json(
+            { success: false, error: 'You cannot suspend your own account' },
+            { status: 400 }
+          );
+        }
+        const user = await userManagementService.suspendUser(params.userId);
+        return NextResponse.json({ success: true, user });
+      } else if (actionValidation.data.action === 'unsuspend') {
+        const user = await userManagementService.unsuspendUser(params.userId);
         return NextResponse.json({ success: true, user });
       }
     }

@@ -98,6 +98,11 @@ class AuthService {
       return null;
     }
 
+    // Check if user is suspended
+    if (user.suspended) {
+      throw new Error('Your account has been suspended. Please contact an administrator.');
+    }
+
     // Check if user is approved
     if (!user.approved) {
       throw new Error('Your account is pending approval. Please contact an administrator.');
