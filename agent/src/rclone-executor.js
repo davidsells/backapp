@@ -79,8 +79,6 @@ export class RcloneExecutor {
       const s3Prefix = `users/${backupConfig.userId}/agents/${backupConfig.agentId}/configs/${backupConfig.id}/rclone/${dateTag}/`;
       const s3Path = `:s3:${s3Bucket}/${s3Prefix}`;
 
-      this.logger.info(`S3 destination: s3://${s3Bucket}/${s3Prefix}`);
-
       // Send initial progress
       this.sendProgress(backupConfig, {
         stage: 'preparing',
@@ -88,23 +86,86 @@ export class RcloneExecutor {
         bytesProcessed: 0
       });
 
-      // Execute rclone sync (single step!)
-      this.logger.info('Syncing to S3 with rclone');
-      this.sendProgress(backupConfig, {
-        stage: 'syncing',
-        filesProcessed: 0,
-        bytesProcessed: 0
-      });
+      let rcloneStats;
 
-      const rcloneStats = await this.executeRcloneSync(
-        backupConfig.sources,
-        s3Path,
-        awsCredentials,
-        rcloneOptions,
-        backupConfig
-      );
+      // Check if two-phase backup is enabled
+      if (rcloneOptions.twoPhase && rcloneOptions.localBackupPath) {
+        this.logger.info('Two-phase backup mode enabled');
 
-      this.logger.info(`Rclone sync complete: ${rcloneStats.filesTransferred} files, ${rcloneStats.totalSize} bytes`);
+        // Create local backup directory with date stamp
+        const localBackupDir = path.join(rcloneOptions.localBackupPath, dateTag);
+        this.ensureDirectory(localBackupDir);
+        this.logger.info(`Local backup directory: ${localBackupDir}`);
+
+        // Phase 1: Sync to local backup
+        this.logger.info('Phase 1: Syncing to local backup directory');
+        this.sendProgress(backupConfig, {
+          stage: 'local-sync',
+          filesProcessed: 0,
+          bytesProcessed: 0
+        });
+
+        const localStats = await this.executeRcloneSync(
+          backupConfig.sources,
+          localBackupDir,
+          null, // No AWS credentials for local sync
+          rcloneOptions,
+          backupConfig,
+          'local'
+        );
+
+        this.logger.info(`Local sync complete: ${localStats.filesTransferred} files, ${localStats.totalSize} bytes`);
+
+        // Phase 2: Upload to S3 (optional)
+        if (rcloneOptions.uploadToRemote !== false) {
+          this.logger.info(`Phase 2: Uploading to S3: ${s3Path}`);
+          this.sendProgress(backupConfig, {
+            stage: 'remote-sync',
+            filesProcessed: localStats.filesTransferred,
+            bytesProcessed: 0
+          });
+
+          const remoteStats = await this.executeRcloneSync(
+            [{ path: localBackupDir }],
+            s3Path,
+            awsCredentials,
+            rcloneOptions,
+            backupConfig,
+            'remote'
+          );
+
+          this.logger.info(`Remote sync complete: ${remoteStats.filesTransferred} files, ${remoteStats.totalSize} bytes`);
+          rcloneStats = remoteStats; // Use remote stats for reporting
+        } else {
+          this.logger.info('Phase 2: Skipping remote upload (local-only backup)');
+          rcloneStats = localStats;
+        }
+
+        // Clean up old local backups
+        if (rcloneOptions.keepLocalCopies > 0) {
+          await this.cleanupOldLocalBackups(rcloneOptions.localBackupPath, rcloneOptions.keepLocalCopies);
+        }
+
+      } else {
+        // Single-phase: Direct sync to S3
+        this.logger.info(`Syncing directly to S3: ${s3Path}`);
+        this.sendProgress(backupConfig, {
+          stage: 'syncing',
+          filesProcessed: 0,
+          bytesProcessed: 0
+        });
+
+        rcloneStats = await this.executeRcloneSync(
+          backupConfig.sources,
+          s3Path,
+          awsCredentials,
+          rcloneOptions,
+          backupConfig,
+          'direct'
+        );
+
+        this.logger.info(`Rclone sync complete: ${rcloneStats.filesTransferred} files, ${rcloneStats.totalSize} bytes`);
+      }
 
       // Report completion to server
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
@@ -212,18 +273,23 @@ export class RcloneExecutor {
   }
 
   /**
-   * Execute rclone sync command to sync sources directly to S3
+   * Execute rclone sync command
+   * @param {string} mode - 'local', 'remote', or 'direct'
    * @returns {Promise<object>} Stats about the rclone operation
    */
-  async executeRcloneSync(sources, s3Path, awsCredentials, options, backupConfig = null) {
+  async executeRcloneSync(sources, destination, awsCredentials, options, backupConfig = null, mode = 'direct') {
     return new Promise((resolve, reject) => {
       // Build rclone arguments
       const args = [
         'sync',
         '--stats', '1s',           // Show stats every second
         '--progress',              // Show progress
-        '--checksum',              // Verify with checksums (default enabled)
       ];
+
+      // Add checksum verification if enabled (skip for local-only to save time)
+      if (options.checksumVerification !== false && mode !== 'local') {
+        args.push('--checksum');
+      }
 
       // Add delete flag if specified
       if (options.delete) {
@@ -231,13 +297,13 @@ export class RcloneExecutor {
       }
 
       // Add bandwidth limit if specified
-      const bwLimit = options.bandwidth || backupConfig.options?.bandwidth;
+      const bwLimit = options.bandwidth || backupConfig?.options?.bandwidth;
       if (bwLimit) {
         args.push('--bwlimit', `${bwLimit}k`); // rclone expects format like "1M" or "500k"
       }
 
-      // Add storage class if specified
-      if (options.storageClass) {
+      // Add storage class if specified (S3 only)
+      if (options.storageClass && mode !== 'local') {
         args.push('--s3-storage-class', options.storageClass);
       }
 
@@ -262,24 +328,26 @@ export class RcloneExecutor {
       args.push(sourcePath);
 
       // Add destination
-      args.push(s3Path);
+      args.push(destination);
 
       this.logger.debug(`Executing: rclone ${args.join(' ')}`);
 
-      // Set environment variables for AWS credentials
-      const env = {
-        ...process.env,
-        AWS_ACCESS_KEY_ID: awsCredentials.accessKeyId,
-        AWS_SECRET_ACCESS_KEY: awsCredentials.secretAccessKey,
-        AWS_DEFAULT_REGION: awsCredentials.region,
-      };
+      // Set environment variables
+      const env = { ...process.env };
 
-      // Only set session token if it exists
-      if (awsCredentials.sessionToken) {
-        env.AWS_SESSION_TOKEN = awsCredentials.sessionToken;
+      // Add AWS credentials if provided (for S3 operations)
+      if (awsCredentials) {
+        env.AWS_ACCESS_KEY_ID = awsCredentials.accessKeyId;
+        env.AWS_SECRET_ACCESS_KEY = awsCredentials.secretAccessKey;
+        env.AWS_DEFAULT_REGION = awsCredentials.region;
+
+        // Only set session token if it exists
+        if (awsCredentials.sessionToken) {
+          env.AWS_SESSION_TOKEN = awsCredentials.sessionToken;
+        }
+
+        this.logger.debug(`Using temporary credentials for rclone (expires: ${awsCredentials.expiration})`);
       }
-
-      this.logger.debug(`Using temporary credentials for rclone (expires: ${awsCredentials.expiration})`);
 
       const rcloneProcess = spawn('rclone', args, { env });
       let stdout = '';
@@ -410,5 +478,57 @@ export class RcloneExecutor {
     }
 
     this.wsClient.notifyBackupProgress(backupConfig.id, backupConfig.name, progress);
+  }
+
+  /**
+   * Ensure directory exists, create if necessary
+   */
+  ensureDirectory(dirPath) {
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+      this.logger.info(`Created directory: ${dirPath}`);
+    }
+  }
+
+  /**
+   * Clean up old local backup copies, keeping only the most recent N
+   * @param {string} localBackupPath - Base path for local backups
+   * @param {number} keepCopies - Number of copies to keep
+   */
+  async cleanupOldLocalBackups(localBackupPath, keepCopies) {
+    try {
+      if (!fs.existsSync(localBackupPath)) {
+        return; // Nothing to clean up
+      }
+
+      // Get all date-stamped directories (YYYY-MM-DD format)
+      const entries = fs.readdirSync(localBackupPath, { withFileTypes: true });
+      const dateDirs = entries
+        .filter(entry => entry.isDirectory())
+        .filter(entry => /^\d{4}-\d{2}-\d{2}$/.test(entry.name)) // Match YYYY-MM-DD
+        .map(entry => ({
+          name: entry.name,
+          path: path.join(localBackupPath, entry.name),
+          mtime: fs.statSync(path.join(localBackupPath, entry.name)).mtime,
+        }))
+        .sort((a, b) => b.mtime - a.mtime); // Sort by modification time, newest first
+
+      // Keep only the specified number of copies
+      const toDelete = dateDirs.slice(keepCopies);
+
+      if (toDelete.length > 0) {
+        this.logger.info(`Cleaning up ${toDelete.length} old local backup(s), keeping ${keepCopies} most recent`);
+
+        for (const dir of toDelete) {
+          this.logger.info(`Deleting old local backup: ${dir.name}`);
+          fs.rmSync(dir.path, { recursive: true, force: true });
+        }
+      } else {
+        this.logger.debug(`No old local backups to clean up (${dateDirs.length} total, keeping ${keepCopies})`);
+      }
+    } catch (error) {
+      this.logger.warn(`Failed to clean up old local backups: ${error.message}`);
+      // Don't fail the backup if cleanup fails
+    }
   }
 }

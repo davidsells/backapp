@@ -99,6 +99,10 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
         storageClass: 'STANDARD_IA',
         bandwidth: 0,
         checksumVerification: true,
+        twoPhase: false,
+        localBackupPath: '',
+        uploadToRemote: true,
+        keepLocalCopies: 7,
       },
     },
   });
@@ -836,6 +840,143 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
                   className="w-4 h-4"
                 />
                 <Label htmlFor="rcloneChecksum">Verify checksums (recommended for data integrity)</Label>
+              </div>
+
+              {/* Two-Phase Backup Options */}
+              <div className="border-t pt-4 mt-4">
+                <div className="flex items-center space-x-2 mb-4">
+                  <input
+                    type="checkbox"
+                    id="rcloneTwoPhase"
+                    checked={formData.options.rclone?.twoPhase ?? false}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        options: {
+                          ...formData.options,
+                          rclone: {
+                            ...formData.options.rclone,
+                            remoteType: formData.options.rclone?.remoteType || 's3',
+                            delete: formData.options.rclone?.delete ?? true,
+                            storageClass: formData.options.rclone?.storageClass,
+                            bandwidth: formData.options.rclone?.bandwidth || 0,
+                            checksumVerification: formData.options.rclone?.checksumVerification ?? true,
+                            twoPhase: e.target.checked,
+                            localBackupPath: formData.options.rclone?.localBackupPath || '',
+                            uploadToRemote: formData.options.rclone?.uploadToRemote ?? true,
+                            keepLocalCopies: formData.options.rclone?.keepLocalCopies || 7,
+                          },
+                        },
+                      })
+                    }
+                    className="w-4 h-4"
+                  />
+                  <Label htmlFor="rcloneTwoPhase" className="font-semibold">Enable two-phase backup (local + remote)</Label>
+                </div>
+                <p className="text-sm text-gray-600 mb-4">
+                  Two-phase backup syncs to a local directory first for fast recovery, then optionally uploads to cloud for disaster recovery.
+                </p>
+
+                {formData.options.rclone?.twoPhase && (
+                  <div className="space-y-4 pl-6 border-l-2 border-green-300">
+                    <div className="space-y-2">
+                      <Label htmlFor="rcloneLocalPath">Local Backup Directory *</Label>
+                      <Input
+                        id="rcloneLocalPath"
+                        value={formData.options.rclone?.localBackupPath || ''}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            options: {
+                              ...formData.options,
+                              rclone: {
+                                ...formData.options.rclone,
+                                remoteType: formData.options.rclone?.remoteType || 's3',
+                                delete: formData.options.rclone?.delete ?? true,
+                                storageClass: formData.options.rclone?.storageClass,
+                                bandwidth: formData.options.rclone?.bandwidth || 0,
+                                checksumVerification: formData.options.rclone?.checksumVerification ?? true,
+                                twoPhase: formData.options.rclone?.twoPhase ?? false,
+                                localBackupPath: e.target.value,
+                                uploadToRemote: formData.options.rclone?.uploadToRemote ?? true,
+                                keepLocalCopies: formData.options.rclone?.keepLocalCopies || 7,
+                              },
+                            },
+                          })
+                        }
+                        placeholder="/var/backups/myapp"
+                        required={formData.options.rclone?.twoPhase}
+                      />
+                      <p className="text-xs text-gray-600">
+                        Base directory for local backups. Date-stamped subdirectories (YYYY-MM-DD) will be created automatically.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="rcloneUploadToRemote"
+                        checked={formData.options.rclone?.uploadToRemote ?? true}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            options: {
+                              ...formData.options,
+                              rclone: {
+                                ...formData.options.rclone,
+                                remoteType: formData.options.rclone?.remoteType || 's3',
+                                delete: formData.options.rclone?.delete ?? true,
+                                storageClass: formData.options.rclone?.storageClass,
+                                bandwidth: formData.options.rclone?.bandwidth || 0,
+                                checksumVerification: formData.options.rclone?.checksumVerification ?? true,
+                                twoPhase: formData.options.rclone?.twoPhase ?? false,
+                                localBackupPath: formData.options.rclone?.localBackupPath || '',
+                                uploadToRemote: e.target.checked,
+                                keepLocalCopies: formData.options.rclone?.keepLocalCopies || 7,
+                              },
+                            },
+                          })
+                        }
+                        className="w-4 h-4"
+                      />
+                      <Label htmlFor="rcloneUploadToRemote">Upload to remote storage after local backup</Label>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="rcloneKeepCopies">Keep Local Copies (0 = keep all)</Label>
+                      <Input
+                        id="rcloneKeepCopies"
+                        type="number"
+                        value={formData.options.rclone?.keepLocalCopies || 7}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            options: {
+                              ...formData.options,
+                              rclone: {
+                                ...formData.options.rclone,
+                                remoteType: formData.options.rclone?.remoteType || 's3',
+                                delete: formData.options.rclone?.delete ?? true,
+                                storageClass: formData.options.rclone?.storageClass,
+                                bandwidth: formData.options.rclone?.bandwidth || 0,
+                                checksumVerification: formData.options.rclone?.checksumVerification ?? true,
+                                twoPhase: formData.options.rclone?.twoPhase ?? false,
+                                localBackupPath: formData.options.rclone?.localBackupPath || '',
+                                uploadToRemote: formData.options.rclone?.uploadToRemote ?? true,
+                                keepLocalCopies: parseInt(e.target.value) || 0,
+                              },
+                            },
+                          })
+                        }
+                        min="0"
+                        placeholder="7"
+                      />
+                      <p className="text-xs text-gray-600">
+                        Number of date-stamped local backup copies to retain. Older backups are automatically deleted. Set to 0 to keep all.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="pt-2">

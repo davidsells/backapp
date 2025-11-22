@@ -34,6 +34,11 @@ const rcloneOptionsSchema = z.object({
   storageClass: z.enum(['STANDARD', 'STANDARD_IA', 'GLACIER', 'DEEP_ARCHIVE']).optional(),
   bandwidth: z.number().optional(),
   checksumVerification: z.boolean().optional().default(true),
+  // Two-phase backup options
+  twoPhase: z.boolean().optional().default(false),
+  localBackupPath: z.string().optional(),
+  uploadToRemote: z.boolean().optional().default(true),
+  keepLocalCopies: z.number().min(0).optional().default(7),
 });
 
 const backupOptionsSchema = z.object({

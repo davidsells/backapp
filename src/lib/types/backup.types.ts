@@ -40,6 +40,11 @@ export interface BackupOptions {
     storageClass?: string; // S3 storage class (STANDARD, STANDARD_IA, GLACIER, DEEP_ARCHIVE)
     bandwidth?: number; // KB/s bandwidth limit (overrides top-level if set)
     checksumVerification?: boolean; // Verify checksums after transfer (default: true)
+    // Two-phase backup options (local + remote)
+    twoPhase?: boolean; // Enable two-phase backup: local first, then remote
+    localBackupPath?: string; // Local backup directory (e.g., /var/backups/myapp/)
+    uploadToRemote?: boolean; // Upload to cloud after local backup (default: true)
+    keepLocalCopies?: number; // Number of local date-stamped copies to keep (0 = keep all)
   };
 }
 
