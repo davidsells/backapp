@@ -5,6 +5,7 @@ import { ApiClient } from './api-client.js';
 import { Logger } from './logger.js';
 import { retryWithBackoff, classifyError } from './retry-util.js';
 import { RsyncExecutor } from './rsync-executor.js';
+import { RcloneExecutor } from './rclone-executor.js';
 
 /**
  * Handles backup execution for a configuration
@@ -26,13 +27,22 @@ export class BackupExecutor {
 
   /**
    * Execute backup for a specific configuration
-   * Routes to archive or rsync executor based on method
+   * Routes to archive, rsync, or rclone executor based on method
    * @param {object} backupConfig - Backup configuration from server
    */
   async executeBackup(backupConfig) {
     const backupMethod = backupConfig.options?.method || 'archive';
 
-    if (backupMethod === 'rsync') {
+    if (backupMethod === 'rclone') {
+      this.logger.info(`Routing to rclone executor for: ${backupConfig.name}`);
+      const rcloneExecutor = new RcloneExecutor(
+        this.config,
+        this.apiClient,
+        this.logger,
+        this.wsClient
+      );
+      return rcloneExecutor.executeBackup(backupConfig);
+    } else if (backupMethod === 'rsync') {
       this.logger.info(`Routing to rsync executor for: ${backupConfig.name}`);
       const rsyncExecutor = new RsyncExecutor(
         this.config,

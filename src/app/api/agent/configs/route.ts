@@ -67,8 +67,8 @@ export async function GET(request: NextRequest) {
           updatedAt: config.updatedAt,
         };
 
-        // If this is an rsync backup, include temporary AWS credentials
-        if (config.options?.method === 'rsync') {
+        // If this is an rsync or rclone backup, include temporary AWS credentials
+        if (config.options?.method === 'rsync' || config.options?.method === 'rclone') {
           try {
             const credentials = await generateTempS3Credentials(config.userId, config.agentId);
             configData.awsCredentials = credentials;

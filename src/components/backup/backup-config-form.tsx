@@ -32,7 +32,7 @@ interface FormData {
     timezone: string;
   };
   options: {
-    method: 'archive' | 'rsync';
+    method: 'archive' | 'rsync' | 'rclone';
     type: 'full' | 'incremental';
     compression: boolean;
     compressionLevel: number;
@@ -43,6 +43,13 @@ interface FormData {
       delete: boolean;
       uploadToS3: boolean;
       storageClass?: string;
+    };
+    rclone?: {
+      remoteType: 's3' | 'wasabi' | 'b2' | 'gcs' | 'azure';
+      delete: boolean;
+      storageClass?: string;
+      bandwidth?: number;
+      checksumVerification?: boolean;
     };
   };
 }
@@ -85,6 +92,13 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
         delete: true,
         uploadToS3: true,
         storageClass: 'STANDARD_IA',
+      },
+      rclone: initialData?.options?.rclone || {
+        remoteType: 's3',
+        delete: true,
+        storageClass: 'STANDARD_IA',
+        bandwidth: 0,
+        checksumVerification: true,
       },
     },
   });
@@ -519,18 +533,21 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
               onChange={(e) =>
                 setFormData({
                   ...formData,
-                  options: { ...formData.options, method: e.target.value as 'archive' | 'rsync' },
+                  options: { ...formData.options, method: e.target.value as 'archive' | 'rsync' | 'rclone' },
                 })
               }
               className="w-full p-2 border rounded-md"
             >
               <option value="archive">Archive (tar.gz)</option>
-              <option value="rsync">Rsync (Local or S3)</option>
+              <option value="rclone">Rclone (Recommended - Multi-cloud sync)</option>
+              <option value="rsync">Rsync (Legacy - Local/S3 two-step)</option>
             </select>
             <p className="text-sm text-gray-500">
               {formData.options.method === 'archive'
                 ? 'Creates a compressed tar.gz archive and uploads to S3'
-                : 'Uses rsync for incremental local backups, optionally syncs to S3'}
+                : formData.options.method === 'rclone'
+                ? 'Single-step sync to S3 or other cloud storage with built-in retries and verification (recommended)'
+                : 'Uses rsync for incremental local backups, then syncs to S3 (legacy two-step process)'}
             </p>
           </div>
 
@@ -664,6 +681,176 @@ export function BackupConfigForm({ initialData, configId }: { initialData?: Part
                   className="w-4 h-4"
                 />
                 <Label htmlFor="rsyncDelete">Mirror deletions (remove files from backup that no longer exist in source)</Label>
+              </div>
+            </div>
+          )}
+
+          {/* Rclone-specific options */}
+          {formData.options.method === 'rclone' && (
+            <div className="space-y-4 p-4 bg-green-50 border border-green-200 rounded-md">
+              <h4 className="font-semibold text-green-900">Rclone Configuration (Recommended)</h4>
+              <div className="p-3 bg-green-100 border border-green-300 rounded text-sm text-green-900">
+                <strong>Single-Step Process:</strong> Rclone syncs directly to S3 without needing local staging.
+                Backups are automatically organized: AWS_S3_BUCKET/users/{'userId'}/agents/{'agentId'}/configs/{'configId'}/rclone/YYYY-MM-DD/
+              </div>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="rcloneRemoteType">Storage Backend</Label>
+                  <select
+                    id="rcloneRemoteType"
+                    value={formData.options.rclone?.remoteType || 's3'}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        options: {
+                          ...formData.options,
+                          rclone: {
+                            ...formData.options.rclone,
+                            remoteType: e.target.value as 's3' | 'wasabi' | 'b2' | 'gcs' | 'azure',
+                            delete: formData.options.rclone?.delete ?? true,
+                            storageClass: formData.options.rclone?.storageClass,
+                            bandwidth: formData.options.rclone?.bandwidth || 0,
+                            checksumVerification: formData.options.rclone?.checksumVerification ?? true,
+                          },
+                        },
+                      })
+                    }
+                    className="w-full p-2 border rounded-md"
+                  >
+                    <option value="s3">Amazon S3</option>
+                    <option value="wasabi">Wasabi</option>
+                    <option value="b2">Backblaze B2</option>
+                    <option value="gcs">Google Cloud Storage</option>
+                    <option value="azure">Azure Blob Storage</option>
+                  </select>
+                  <p className="text-xs text-gray-600">Choose your storage provider (currently S3 is fully configured)</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="rcloneStorageClass">S3 Storage Class</Label>
+                  <select
+                    id="rcloneStorageClass"
+                    value={formData.options.rclone?.storageClass || 'STANDARD_IA'}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        options: {
+                          ...formData.options,
+                          rclone: {
+                            ...formData.options.rclone,
+                            remoteType: formData.options.rclone?.remoteType || 's3',
+                            delete: formData.options.rclone?.delete ?? true,
+                            storageClass: e.target.value,
+                            bandwidth: formData.options.rclone?.bandwidth || 0,
+                            checksumVerification: formData.options.rclone?.checksumVerification ?? true,
+                          },
+                        },
+                      })
+                    }
+                    className="w-full p-2 border rounded-md"
+                  >
+                    <option value="STANDARD">Standard</option>
+                    <option value="STANDARD_IA">Standard-IA (Infrequent Access)</option>
+                    <option value="GLACIER">Glacier</option>
+                    <option value="DEEP_ARCHIVE">Glacier Deep Archive</option>
+                  </select>
+                  <p className="text-xs text-gray-600">Cost-optimized storage classes for backups</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="rcloneBandwidth">Bandwidth Limit (KB/s, 0 = unlimited)</Label>
+                  <Input
+                    id="rcloneBandwidth"
+                    type="number"
+                    value={formData.options.rclone?.bandwidth || 0}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        options: {
+                          ...formData.options,
+                          rclone: {
+                            ...formData.options.rclone,
+                            remoteType: formData.options.rclone?.remoteType || 's3',
+                            delete: formData.options.rclone?.delete ?? true,
+                            storageClass: formData.options.rclone?.storageClass,
+                            bandwidth: parseInt(e.target.value) || 0,
+                            checksumVerification: formData.options.rclone?.checksumVerification ?? true,
+                          },
+                        },
+                      })
+                    }
+                    min="0"
+                    placeholder="0 (unlimited)"
+                  />
+                  <p className="text-xs text-gray-600">Limit upload speed to avoid network congestion</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="rcloneDelete"
+                  checked={formData.options.rclone?.delete ?? true}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      options: {
+                        ...formData.options,
+                        rclone: {
+                          ...formData.options.rclone,
+                          remoteType: formData.options.rclone?.remoteType || 's3',
+                          delete: e.target.checked,
+                          storageClass: formData.options.rclone?.storageClass,
+                          bandwidth: formData.options.rclone?.bandwidth || 0,
+                          checksumVerification: formData.options.rclone?.checksumVerification ?? true,
+                        },
+                      },
+                    })
+                  }
+                  className="w-4 h-4"
+                />
+                <Label htmlFor="rcloneDelete">Mirror deletions (remove files from backup that no longer exist in source)</Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="rcloneChecksum"
+                  checked={formData.options.rclone?.checksumVerification ?? true}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      options: {
+                        ...formData.options,
+                        rclone: {
+                          ...formData.options.rclone,
+                          remoteType: formData.options.rclone?.remoteType || 's3',
+                          delete: formData.options.rclone?.delete ?? true,
+                          storageClass: formData.options.rclone?.storageClass,
+                          bandwidth: formData.options.rclone?.bandwidth || 0,
+                          checksumVerification: e.target.checked,
+                        },
+                      },
+                    })
+                  }
+                  className="w-4 h-4"
+                />
+                <Label htmlFor="rcloneChecksum">Verify checksums (recommended for data integrity)</Label>
+              </div>
+
+              <div className="pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowCostAssessment(true)}
+                  className="w-full"
+                  disabled={formData.sources.length === 0 || !formData.sources[0]?.path}
+                >
+                  💰 Calculate S3 Cost Estimate
+                </Button>
+                <p className="text-xs text-gray-500 mt-1 text-center">
+                  Get estimated monthly and yearly costs for S3 storage
+                </p>
               </div>
             </div>
           )}

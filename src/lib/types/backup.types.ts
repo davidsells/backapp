@@ -19,19 +19,27 @@ export interface ScheduleConfig {
 }
 
 export interface BackupOptions {
-  method?: 'archive' | 'rsync'; // Backup method: tar.gz archive or rsync (defaults to 'archive')
+  method?: 'archive' | 'rsync' | 'rclone'; // Backup method: tar.gz archive, rsync, or rclone (defaults to 'archive')
   type: 'full' | 'incremental';
   compression: boolean;
   compressionLevel?: number;
   encryption: boolean;
   retentionDays?: number;
   bandwidth?: number; // KB/s
-  // Rsync-specific options
+  // Rsync-specific options (legacy - migrate to rclone)
   rsync?: {
     localReplica: string; // Local staging directory for rsync
     delete?: boolean; // Mirror deletions (--delete flag)
     uploadToS3?: boolean; // Upload to S3 after rsync (default: true for backward compatibility)
     storageClass?: string; // S3 storage class (STANDARD_IA, GLACIER, etc.)
+  };
+  // Rclone-specific options (recommended)
+  rclone?: {
+    remoteType: 's3' | 'wasabi' | 'b2' | 'gcs' | 'azure'; // Storage backend type
+    delete?: boolean; // Mirror deletions (--delete-excluded flag)
+    storageClass?: string; // S3 storage class (STANDARD, STANDARD_IA, GLACIER, DEEP_ARCHIVE)
+    bandwidth?: number; // KB/s bandwidth limit (overrides top-level if set)
+    checksumVerification?: boolean; // Verify checksums after transfer (default: true)
   };
 }
 
