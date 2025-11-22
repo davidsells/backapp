@@ -38,7 +38,7 @@ model BackupConfig {
   schedule      Json?       // Optional: null for manual-only backups
   options       Json
   agentId       String?     @map("agent_id") // null = server-side backup
-  executionMode String      @default("server") // "server" or "agent"
+  executionMode String      @default("server") @map("execution_mode") // "server" or "agent"
   requestedAt   DateTime?   @map("requested_at") // Set when user clicks "Run Now"
   lastRunAt     DateTime?   @map("last_run_at") // Timestamp of last execution
   createdAt     DateTime    @default(now()) @map("created_at")
