@@ -27,8 +27,16 @@ const rsyncOptionsSchema = z.object({
   storageClass: z.enum(['STANDARD', 'STANDARD_IA', 'GLACIER', 'DEEP_ARCHIVE']).optional(),
 });
 
+const rcloneOptionsSchema = z.object({
+  remoteType: z.enum(['s3', 'wasabi', 'b2', 'gcs', 'azure']).default('s3'),
+  delete: z.boolean().optional(),
+  storageClass: z.enum(['STANDARD', 'STANDARD_IA', 'GLACIER', 'DEEP_ARCHIVE']).optional(),
+  bandwidth: z.number().optional(),
+  checksumVerification: z.boolean().optional().default(true),
+});
+
 const backupOptionsSchema = z.object({
-  method: z.enum(['archive', 'rsync']).optional().default('archive'),
+  method: z.enum(['archive', 'rsync', 'rclone']).optional().default('archive'),
   type: z.enum(['full', 'incremental']),
   compression: z.boolean(),
   compressionLevel: z.number().min(1).max(9).optional(),
@@ -36,6 +44,7 @@ const backupOptionsSchema = z.object({
   retentionDays: z.number().min(1).optional(),
   bandwidth: z.number().optional(),
   rsync: rsyncOptionsSchema.optional(),
+  rclone: rcloneOptionsSchema.optional(),
 });
 
 const updateConfigSchema = z.object({
