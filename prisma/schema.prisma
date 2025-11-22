@@ -107,7 +107,7 @@ model AppSettings {
 model Agent {
   id           String         @id @default(uuid())
   name         String         // "David's MacBook"
-  apiKey       String         @unique // Authentication token (plaintext, show once)
+  apiKey       String         @unique @map("api_key") // Authentication token (plaintext, show once)
   apiKeyHash   String         @map("api_key_hash") // Hashed version for validation
   lastSeen     DateTime?      @map("last_seen") // Last heartbeat
   status       String         @default("offline") // online, offline, error
