@@ -38,7 +38,7 @@ model BackupConfig {
   schedule      Json?       // Optional: null for manual-only backups
   options       Json
   agentId       String?     @map("agent_id") // null = server-side backup
-  executionMode String      @default("server") // "server" or "agent"
+  executionMode String      @default("server") @map("execution_mode") // "server" or "agent"
   requestedAt   DateTime?   @map("requested_at") // Set when user clicks "Run Now"
   lastRunAt     DateTime?   @map("last_run_at") // Timestamp of last execution
   createdAt     DateTime    @default(now()) @map("created_at")
@@ -107,7 +107,7 @@ model AppSettings {
 model Agent {
   id           String         @id @default(uuid())
   name         String         // "David's MacBook"
-  apiKey       String         @unique // Authentication token (plaintext, show once)
+  apiKey       String         @unique @map("api_key") // Authentication token (plaintext, show once)
   apiKeyHash   String         @map("api_key_hash") // Hashed version for validation
   lastSeen     DateTime?      @map("last_seen") // Last heartbeat
   status       String         @default("offline") // online, offline, error
