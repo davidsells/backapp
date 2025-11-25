@@ -1,25 +1,9 @@
-import { auth } from '@/lib/auth/auth';
+import { auth, signOut } from '@/lib/auth/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { signOut } from '@/lib/auth/auth';
-import { Button } from '@/components/ui/button';
 import { BackupNotifications } from '@/components/backup/backup-notification';
 import { MobileNav } from '@/components/navigation/mobile-nav';
-
-async function SignOutButton() {
-  return (
-    <form
-      action={async () => {
-        'use server';
-        await signOut({ redirectTo: '/login' });
-      }}
-    >
-      <Button type="submit" variant="ghost" size="sm">
-        Sign Out
-      </Button>
-    </form>
-  );
-}
+import { UserMenuWrapper } from '@/components/navigation/user-menu-wrapper';
 
 export default async function AppLayout({
   children,
@@ -30,6 +14,11 @@ export default async function AppLayout({
 
   if (!session) {
     redirect('/login');
+  }
+
+  async function handleSignOut() {
+    'use server';
+    await signOut({ redirectTo: '/login' });
   }
 
   return (
@@ -88,17 +77,11 @@ export default async function AppLayout({
               )}
             </nav>
           </div>
-          <div className="flex items-center space-x-2 md:space-x-4">
-            <span className="hidden text-sm text-muted-foreground sm:inline-block">
-              {session.user?.name || session.user?.email}
-            </span>
-            <Link href="/settings/profile" className="hidden sm:inline-block">
-              <Button variant="ghost" size="sm">
-                Settings
-              </Button>
-            </Link>
-            <SignOutButton />
-          </div>
+          <UserMenuWrapper
+            userName={session.user?.name}
+            userEmail={session.user?.email}
+            signOutAction={handleSignOut}
+          />
         </div>
       </header>
       <main className="container mx-auto p-4 md:p-6">{children}</main>
